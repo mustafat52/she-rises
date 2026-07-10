@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>She Rises — A Safe Space for Dawoodi Bohra Women</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ivory:#FBF3EC;
+    --ivory-deep:#F2E4D6;
+    --rose-deep:#742842;
+    --rose-deep-dark:#511C30;
+    --rose-soft:#E3A9BE;
+    --rose-soft-t:#E3A9BEaa;
+    --gold:#B8862E;
+    --gold-line:#C08A34;
+    --gold-soft:#E3C68C;
+    --ink:#2A2220;
+    --ink-soft:#5A4C46;
+    --teal:#3F6B5E;
+    --teal-soft:#DCE9E4;
+    --shadow: 0 18px 40px -22px rgba(42,34,32,0.35);
+    --arch: path('M0,120 C0,50 20,0 60,0 C100,0 120,50 120,120 Z');
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ivory);
+    color:var(--ink);
+    font-family:'Karla', sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    letter-spacing:-0.01em;
+    color:var(--rose-deep);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--gold);
+    font-weight:500;
+  }
+  a{color:inherit; text-decoration:none;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none;}
+  :focus-visible{outline:2.5px solid var(--teal); outline-offset:3px; border-radius:4px;}
+  img{max-width:100%; display:block;}
+
+  /* ---------- Arch motif (signature element) ---------- */
+  .arch-frame{
+    clip-path: path('M0,340 L0,150 C0,80 30,35 80,15 C110,3 140,0 150,0 C160,0 190,3 220,15 C270,35 300,80 300,150 L300,340 Z');
+    -webkit-clip-path: path('M0,340 L0,150 C0,80 30,35 80,15 C110,3 140,0 150,0 C160,0 190,3 220,15 C270,35 300,80 300,150 L300,340 Z');
+  }
+  .arch-top{
+    clip-path: path('M0,340 L0,150 C0,86 20,58 53,32 C73,20 93,17 100,15 C107,17 127,20 147,32 C180,58 200,86 200,150 L200,340 Z');
+    -webkit-clip-path: path('M0,340 L0,150 C0,86 20,58 53,32 C73,20 93,17 100,15 C107,17 127,20 147,32 C180,58 200,86 200,150 L200,340 Z');
+  }
+  .arch-outline{
+    position:absolute; inset:0; pointer-events:none;
+  }
+
+  /* ---------- Layout shell ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(251,243,236,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(116,40,66,0.12);
+  }
+  .nav-wrap{
+    max-width:1180px; margin:0 auto; padding:16px 28px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand-mark{width:42px; height:42px; flex-shrink:0; border-radius:50%; object-fit:cover; border:1.5px solid var(--gold);}
+  .brand-name{font-family:'Fraunces', serif; font-size:1.25rem; font-weight:600; color:var(--rose-deep); line-height:1.1;}
+  .brand-sub{font-family:'IBM Plex Mono', monospace; font-size:0.6rem; letter-spacing:0.1em; color:var(--ink-soft); text-transform:uppercase;}
+  nav{display:flex; gap:6px; align-items:center;}
+  .nav-btn{
+    font-size:0.92rem; font-weight:600; color:var(--ink-soft);
+    padding:9px 15px; border-radius:99px; transition:all .2s;
+  }
+  .nav-btn:hover{background:var(--rose-soft-t); color:var(--rose-deep-dark);}
+  .nav-btn.active{background:var(--rose-deep); color:var(--ivory);}
+  .nav-cta{
+    background:var(--teal); color:var(--ivory); padding:10px 18px; border-radius:99px;
+    font-weight:700; font-size:0.88rem; white-space:nowrap; transition:transform .2s, background .2s;
+  }
+  .nav-cta:hover{background:#33564b; transform:translateY(-1px);}
+  .mobile-toggle{display:none; font-size:1.5rem; color:var(--rose-deep);}
+
+  main{max-width:1180px; margin:0 auto; padding:0 28px;}
+  .page{display:none;}
+  .page.active{display:block; animation:fadein .5s ease both;}
+  @keyframes fadein{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto;}
+    .page.active{animation:none;}
+    .reveal{opacity:1 !important; transform:none !important;}
+  }
+
+  .reveal{opacity:0; transform:translateY(18px); transition:opacity .7s ease, transform .7s ease;}
+  .reveal.in{opacity:1; transform:translateY(0);}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    display:grid; grid-template-columns:1.1fr 0.9fr; gap:56px; align-items:center;
+    padding:64px 0 84px;
+  }
+  .hero-eyebrow{margin-bottom:18px;}
+  .hero h1{font-size:clamp(2.3rem, 4vw, 3.4rem); line-height:1.08; margin-bottom:22px;}
+  .hero h1 em{font-style:italic; color:var(--gold);}
+  .hero p.lead{font-size:1.14rem; color:var(--ink-soft); max-width:46ch; margin-bottom:32px;}
+  .btn-row{display:flex; gap:14px; flex-wrap:wrap;}
+  .btn-primary{
+    background:var(--rose-deep); color:var(--ivory); padding:15px 26px; border-radius:99px;
+    font-weight:700; font-size:0.98rem; box-shadow:var(--shadow); transition:transform .2s, background .2s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn-primary:hover{background:var(--rose-deep-dark); transform:translateY(-2px);}
+  .btn-secondary{
+    background:transparent; color:var(--rose-deep); padding:15px 22px; border-radius:99px;
+    font-weight:700; font-size:0.98rem; border:1.5px solid var(--rose-deep); transition:all .2s;
+  }
+  .btn-secondary:hover{background:var(--rose-soft-t);}
+
+  .hero-visual{
+    position:relative; aspect-ratio:300/340; max-width:340px; margin:0 auto;
+  }
+  .hero-visual .arch-frame{
+    width:100%; height:100%; background:linear-gradient(165deg, var(--rose-deep) 0%, var(--gold) 100%);
+    display:flex; align-items:flex-end; justify-content:center; overflow:hidden; position:relative;
+  }
+  .hero-visual .arch-frame::before{
+    content:''; position:absolute; inset:0; opacity:0.14; pointer-events:none;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><path d="M25,0 L50,25 L25,50 L0,25 Z" fill="none" stroke="%23FBF3EC" stroke-width="1"/></svg>');
+    background-size:50px 50px;
+  }
+  .hero-visual svg.motif{width:58%; opacity:0.95; position:relative; z-index:1; margin-bottom:8%;}
+  .hero-visual-ring{
+    position:absolute; inset:-14px; border:1.5px solid var(--gold-line); border-radius:150px 150px 30px 30px;
+    pointer-events:none; opacity:0.6;
+  }
+  .jaali-bg{position:relative;}
+  .jaali-bg::before{
+    content:''; position:absolute; inset:0; opacity:0.06; pointer-events:none; z-index:0;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23742842" stroke-width="1"/><circle cx="30" cy="30" r="9" fill="none" stroke="%23742842" stroke-width="1"/></svg>');
+    background-size:60px 60px;
+  }
+  .muqarnas-divider{width:100%; height:24px; display:block; margin:6px 0;}
+
+  /* ---------- Section generic ---------- */
+  section{padding:70px 0;}
+  section.tinted{
+    background:var(--ivory-deep); border-radius:6px; margin:0 -8px;
+  }
+  .section-head{max-width:640px; margin-bottom:46px;}
+  .section-head h2{font-size:clamp(1.7rem, 2.6vw, 2.3rem); margin-top:10px;}
+  .section-head p{color:var(--ink-soft); margin-top:14px; font-size:1.03rem;}
+
+  /* pillars */
+  .pillars{display:grid; grid-template-columns:repeat(3, 1fr); gap:26px;}
+  .pillar-card{
+    background:var(--ivory); border-radius:6px 6px 22px 22px; padding:34px 26px 30px; position:relative;
+    box-shadow:0 1px 0 rgba(116,40,66,0.06); border:1px solid rgba(116,40,66,0.10); border-top:3px solid var(--gold-line);
+    transition:transform .25s, box-shadow .25s;
+  }
+  .pillar-card:hover{transform:translateY(-4px); box-shadow:var(--shadow);}
+  .pillar-icon{
+    width:52px; height:52px; border-radius:4px 4px 26px 26px; background:var(--rose-soft);
+    display:flex; align-items:center; justify-content:center; margin-bottom:18px; border:1px solid var(--gold-line);
+  }
+  .pillar-card h3{font-size:1.18rem; margin-bottom:10px;}
+  .pillar-card p{color:var(--ink-soft); font-size:0.96rem;}
+
+  /* steps */
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:26px; counter-reset:step;}
+  .step{position:relative; padding-top:8px;}
+  .step-num{
+    font-family:'Fraunces', serif; font-size:2.6rem; color:var(--gold-soft); font-weight:600; line-height:1;
+    -webkit-text-stroke:1.5px var(--gold);
+  }
+  .step h3{margin:14px 0 8px; font-size:1.1rem;}
+  .step p{color:var(--ink-soft); font-size:0.95rem;}
+  .step:not(:last-child)::after{
+    content:''; position:absolute; top:26px; left:calc(100% - 4px); width:calc(100% - 20px);
+    border-top:1.5px dashed var(--gold-soft); display:block;
+  }
+  @media(max-width:860px){.step::after{display:none;}}
+
+  /* voices preview cards */
+  .voice-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px;}
+  .voice-card{
+    background:var(--ivory); border-radius:6px; overflow:hidden; border:1px solid rgba(116,40,66,0.10);
+    transition:transform .25s, box-shadow .25s; display:flex; flex-direction:column;
+  }
+  .voice-card:hover{transform:translateY(-4px); box-shadow:var(--shadow);}
+  .voice-top{
+    height:120px; display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .voice-badge{
+    position:absolute; top:14px; left:14px; font-family:'IBM Plex Mono', monospace; font-size:0.66rem;
+    letter-spacing:0.08em; text-transform:uppercase; background:rgba(255,255,255,0.85); color:var(--rose-deep);
+    padding:5px 10px; border-radius:99px; font-weight:600;
+  }
+  .voice-body{padding:20px 20px 22px; flex:1; display:flex; flex-direction:column;}
+  .voice-tag{font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color:var(--teal); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;}
+  .voice-body h3{font-size:1.06rem; margin-bottom:8px; line-height:1.35;}
+  .voice-body p{font-size:0.9rem; color:var(--ink-soft); flex:1; margin-bottom:14px;}
+  .voice-link{font-weight:700; font-size:0.88rem; color:var(--rose-deep); display:inline-flex; align-items:center; gap:6px;}
+  .voice-link:hover{color:var(--rose-deep-dark); gap:9px;}
+
+  /* resource strip */
+  .resource-strip{
+    display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;
+    background:var(--teal); color:var(--ivory); border-radius:8px; padding:30px 34px; position:relative; overflow:hidden;
+  }
+  .resource-strip::before{
+    content:''; position:absolute; inset:0; opacity:0.07; pointer-events:none;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FBF3EC" stroke-width="1"/></svg>');
+    background-size:60px 60px;
+  }
+  .resource-strip h3, .resource-strip p, .resource-strip .btn-primary{position:relative;}
+  .resource-strip h3{color:var(--ivory); font-size:1.15rem; margin-bottom:6px;}
+  .resource-strip p{color:#DCEAE5; font-size:0.92rem; max-width:52ch;}
+  .resource-strip .btn-primary{background:var(--ivory); color:var(--teal); box-shadow:none;}
+  .resource-strip .btn-primary:hover{background:#fff;}
+
+  footer{border-top:1px solid rgba(116,40,66,0.12); margin-top:60px; padding:40px 0 50px;}
+  .footer-wrap{max-width:1180px; margin:0 auto; padding:0 28px; display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; align-items:flex-start; box-sizing:border-box;}
+  .footer-brand p{color:var(--ink-soft); font-size:0.88rem; max-width:34ch; margin-top:8px;}
+  .footer-links{display:flex; gap:40px; flex-wrap:wrap;}
+  .footer-col h4{font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold); margin-bottom:12px;}
+  .footer-col a{display:block; color:var(--ink-soft); font-size:0.9rem; margin-bottom:9px;}
+  .footer-col a:hover{color:var(--rose-deep);}
+  .footer-bottom{max-width:1180px; margin:36px auto 0; padding:0 28px; font-size:0.8rem; color:var(--ink-soft); opacity:0.8; box-sizing:border-box;}
+
+  /* ============ VOICES / MEDIA HUB PAGE ============ */
+  .page-hero{padding:56px 0 20px;}
+  .page-hero .eyebrow{margin-bottom:14px;}
+  .page-hero h1{font-size:clamp(2rem, 3.4vw, 2.8rem); max-width:18ch;}
+  .page-hero p{color:var(--ink-soft); max-width:60ch; margin-top:16px; font-size:1.04rem;}
+
+  .filter-row{display:flex; gap:10px; flex-wrap:wrap; margin:34px 0 40px;}
+  .filter-chip{
+    font-family:'IBM Plex Mono', monospace; font-size:0.76rem; letter-spacing:0.04em;
+    padding:9px 16px; border-radius:99px; border:1.5px solid rgba(116,40,66,0.25); color:var(--ink-soft);
+    transition:all .2s;
+  }
+  .filter-chip:hover{border-color:var(--rose-deep); color:var(--rose-deep);}
+  .filter-chip.active{background:var(--rose-deep); border-color:var(--rose-deep); color:var(--ivory);}
+
+  .media-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px; padding-bottom:80px;}
+  .media-card{
+    grid-column:span 1;
+  }
+  .media-empty{
+    text-align:center; padding:60px 20px; color:var(--ink-soft); grid-column:1/-1;
+  }
+
+  /* ============ FIND SUPPORT PAGE ============ */
+  .support-wrap{
+    display:grid; grid-template-columns:1fr 1fr; gap:60px; padding:56px 0 90px; align-items:start;
+  }
+  .support-copy .eyebrow{margin-bottom:14px;}
+  .support-copy h1{font-size:clamp(2rem,3.2vw,2.6rem); margin-bottom:20px;}
+  .support-copy p{color:var(--ink-soft); margin-bottom:16px; font-size:1.02rem;}
+  .assurance-list{margin-top:26px; display:flex; flex-direction:column; gap:16px;}
+  .assurance-item{display:flex; gap:14px; align-items:flex-start;}
+  .assurance-dot{width:8px; height:8px; border-radius:50%; background:var(--gold); margin-top:8px; flex-shrink:0;}
+  .assurance-item h4{font-size:0.98rem; color:var(--rose-deep); margin-bottom:4px;}
+  .assurance-item p{font-size:0.9rem; margin:0; color:var(--ink-soft);}
+
+  .support-card{
+    background:linear-gradient(165deg, var(--rose-soft) 0%, var(--ivory-deep) 60%);
+    border-radius:6px 6px 28px 28px; padding:44px 34px; text-align:center; position:relative; overflow:hidden; border-top:3px solid var(--gold-line);
+  }
+  .support-card h3{font-size:1.35rem; margin-bottom:12px;}
+  .support-card p{color:var(--ink-soft); font-size:0.95rem; margin-bottom:26px;}
+  .whatsapp-btn{
+    background:var(--rose-deep); color:var(--ivory); padding:16px 30px; border-radius:99px;
+    font-weight:700; font-size:1rem; display:inline-flex; align-items:center; gap:10px;
+    box-shadow:var(--shadow); transition:transform .2s, background .2s;
+  }
+  .whatsapp-btn:hover{background:var(--rose-deep-dark); transform:translateY(-2px);}
+  .support-note{font-size:0.8rem; color:var(--ink-soft); margin-top:18px; opacity:0.85;}
+
+  .process-steps{display:flex; flex-direction:column; gap:0; margin-top:50px;}
+  .process-step{display:flex; gap:20px; padding:22px 0; border-bottom:1px solid rgba(116,40,66,0.1);}
+  .process-step:last-child{border-bottom:none;}
+  .process-num{
+    font-family:'Fraunces',serif; font-size:1.3rem; color:var(--gold); font-weight:600;
+    width:40px; flex-shrink:0;
+  }
+  .process-step h4{color:var(--rose-deep); margin-bottom:5px; font-size:1.02rem;}
+  .process-step p{color:var(--ink-soft); font-size:0.92rem;}
+
+  /* ============ RESOURCES PAGE ============ */
+  .resources-hero{padding:56px 0 10px;}
+  .crisis-banner{
+    background:var(--rose-deep); color:var(--ivory); border-radius:8px; padding:28px 30px; margin:34px 0 50px;
+    display:flex; gap:18px; align-items:flex-start;
+  }
+  .crisis-banner p{color:#F4DEE4; font-size:0.92rem;}
+  .crisis-banner h3{color:var(--ivory); margin-bottom:8px; font-size:1.08rem;}
+  .helpline-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:16px;}
+  .helpline{background:rgba(255,255,255,0.1); border-radius:14px; padding:14px 16px;}
+  .helpline .num{font-family:'IBM Plex Mono',monospace; font-size:1rem; font-weight:600;}
+  .helpline .lbl{font-size:0.78rem; color:#F4DEE4; margin-top:2px;}
+
+  .resource-cat{margin-bottom:50px;}
+  .resource-cat h3{font-size:1.15rem; margin-bottom:16px; display:flex; align-items:center; gap:10px;}
+  .resource-cat-dot{width:10px; height:10px; border-radius:3px; background:var(--gold);}
+  .resource-items{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+  .resource-item{
+    padding:18px 20px; border:1px solid rgba(116,40,66,0.12); border-radius:6px;
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+  }
+  .resource-item h4{font-size:0.96rem; color:var(--ink); margin-bottom:3px;}
+  .resource-item p{font-size:0.82rem; color:var(--ink-soft);}
+
+  /* ============ FIND A COUNSELLOR PAGE ============ */
+  .filter-group{margin-bottom:22px;}
+  .filter-group-label{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); margin-bottom:10px; font-weight:600;}
+  .counsellor-note{
+    background:var(--teal-soft); border-radius:16px; padding:16px 20px; font-size:0.88rem; color:#2A4A40;
+    margin:8px 0 40px; display:flex; gap:12px; align-items:flex-start;
+  }
+  .counsellor-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:22px; padding-bottom:80px;}
+  .counsellor-card{
+    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 22px 22px; padding:26px; border-top:3px solid var(--gold-line);
+    display:flex; flex-direction:column; transition:transform .25s, box-shadow .25s;
+  }
+  .counsellor-card:hover{transform:translateY(-4px); box-shadow:var(--shadow);}
+  .counsellor-top{display:flex; gap:16px; align-items:center; margin-bottom:16px;}
+  .avatar-circle{
+    width:56px; height:56px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(150deg, var(--rose-soft), var(--gold-soft)); font-family:'Fraunces',serif; font-weight:600;
+    color:var(--rose-deep-dark); font-size:1.2rem; border:1.5px solid var(--gold);
+  }
+  .counsellor-name{font-weight:700; font-size:1.02rem; color:var(--ink);}
+  .counsellor-cred{font-size:0.83rem; color:var(--ink-soft);}
+  .counsellor-meta{display:flex; gap:14px; flex-wrap:wrap; font-size:0.82rem; color:var(--ink-soft); margin-bottom:14px;}
+  .counsellor-meta span{display:flex; align-items:center; gap:5px;}
+  .counsellor-bio{font-size:0.9rem; color:var(--ink-soft); margin-bottom:16px; flex:1;}
+  .counsellor-tags{display:flex; gap:7px; flex-wrap:wrap; margin-bottom:18px;}
+  .counsellor-cta{
+    background:var(--rose-deep); color:var(--ivory); padding:12px; border-radius:12px; text-align:center;
+    font-weight:700; font-size:0.88rem; transition:background .2s;
+  }
+  .counsellor-cta:hover{background:var(--rose-deep-dark);}
+  @media(max-width:920px){.counsellor-grid{grid-template-columns:1fr;}}
+
+  /* ============ ABOUT PAGE ============ */
+  .about-hero{padding:56px 0 40px; display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:center;}
+  .about-hero h1{font-size:clamp(2rem,3.4vw,2.8rem); margin-bottom:20px;}
+  .about-hero p{color:var(--ink-soft); font-size:1.03rem; margin-bottom:16px;}
+  .about-motif{aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--rose-soft), var(--gold-soft) 85%); display:flex; align-items:center; justify-content:center; max-width:320px; margin:0 auto; border:2px solid var(--gold);}
+  .about-motif svg{width:56%;}
+
+  .values-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:20px; padding:20px 0 70px;}
+  .value-block{padding:26px; border-radius:6px 6px 18px 18px; background:var(--ivory-deep); border-top:3px solid var(--gold-line);}
+  .value-block h4{font-size:1.02rem; margin-bottom:8px; color:var(--rose-deep);}
+  .value-block p{font-size:0.92rem; color:var(--ink-soft);}
+
+  /* ============ RESPONSIVE ============ */
+  @media(max-width:920px){
+    nav{display:none;}
+    .mobile-toggle{display:block;}
+    .hero{grid-template-columns:1fr; gap:40px;}
+    .hero-visual{order:-1; max-width:220px;}
+    .pillars, .steps, .voice-grid, .media-grid{grid-template-columns:1fr;}
+    .support-wrap, .about-hero{grid-template-columns:1fr;}
+    .about-hero{text-align:center;}
+    .helpline-grid, .resource-items, .values-grid{grid-template-columns:1fr;}
+    section.tinted{border-radius:6px;}
+    .nav-wrap{flex-wrap:wrap;}
+    nav.mobile-open{display:flex; width:100%; flex-direction:column; padding-top:10px;}
+    nav.mobile-open .nav-btn{width:100%; text-align:left;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-wrap">
+    <a href="#" class="brand" onclick="goPage('home');return false;">
+      <img class="brand-mark" src="data:image/png;base64,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" alt="She Rises logo">
+      <div>
+        <div class="brand-name">She Rises</div>
+        <div class="brand-sub">Dawoodi Bohra Women's Initiative</div>
+      </div>
+    </a>
+    <nav id="mainNav">
+      <button class="nav-btn active" data-page="home" onclick="goPage('home')">Home</button>
+      <button class="nav-btn" data-page="voices" onclick="goPage('voices')">Voices</button>
+      <button class="nav-btn" data-page="support" onclick="goPage('support')">Find Support</button>
+      <button class="nav-btn" data-page="counsellors" onclick="goPage('counsellors')">Find a Counsellor</button>
+      <button class="nav-btn" data-page="resources" onclick="goPage('resources')">Resources</button>
+      <button class="nav-btn" data-page="about" onclick="goPage('about')">About</button>
+    </nav>
+    <a class="nav-cta" href="https://wa.link/kwwqdl" target="_blank" rel="noopener">Reach Out</a>
+    <button class="mobile-toggle" onclick="document.getElementById('mainNav').classList.toggle('mobile-open')">☰</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ================= HOME ================= -->
+  <div class="page active" id="page-home">
+    <section class="hero jaali-bg">
+      <div>
+        <div class="eyebrow reveal">A safe space for women</div>
+        <h1 class="reveal">You are not alone <em>in this.</em></h1>
+        <p class="lead reveal">She Rises is a space built by and for Dawoodi Bohra women — to be heard without judgement, to find real support, and to know that reaching out is never a weakness.</p>
+        <div class="btn-row reveal">
+          <a class="btn-primary" href="#" onclick="goPage('support');return false;">Reach Out Now →</a>
+          <a class="btn-secondary" href="#" onclick="goPage('voices');return false;">Listen First</a>
+        </div>
+      </div>
+      <div class="hero-visual reveal">
+        <div class="hero-visual-ring"></div>
+        <div class="arch-frame">
+          <svg class="motif" viewBox="0 0 100 100" fill="none">
+            <path d="M50 78 C34 65 22 50 22 34 C22 24 30 18 38 21 C43.5 23 47 28 50 33 C53 28 56.5 23 62 21 C70 18 78 24 78 34 C78 50 66 65 50 78 Z" fill="#FBF3EC" opacity="0.95"/>
+            <path d="M50 22 C56 10 70 6 78 14" stroke="#FBF3EC" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.8"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head reveal">
+        <div class="eyebrow">What we stand for</div>
+        <h2>A community that holds you.</h2>
+        <p>She Rises exists because too many women carry their hardest moments alone. We're changing that — one conversation at a time.</p>
+      </div>
+      <div class="pillars">
+        <div class="pillar-card reveal">
+          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.8 1.3 4.5 2.4L12 8l1.5-1.6C14.2 5.3 15.8 4 18 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9Z" stroke="#7C2D42" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <h3>Privacy, always</h3>
+          <p>What you share stays between you and the person supporting you. No case is discussed outside that thread.</p>
+        </div>
+        <div class="pillar-card reveal">
+          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 8l7-5 7 5M5 8v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V8" stroke="#7C2D42" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <h3>Rooted in community</h3>
+          <p>We understand the faith, the family expectations, and the culture — support here doesn't ask you to leave that behind.</p>
+        </div>
+        <div class="pillar-card reveal">
+          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12c2-4 5-6 8-6s6 2 8 6c-2 4-5 6-8 6s-6-2-8-6Z" stroke="#7C2D42" stroke-width="1.6"/><circle cx="12" cy="12" r="2.4" stroke="#7C2D42" stroke-width="1.6"/></svg></div>
+          <h3>Real support, not just listening</h3>
+          <p>Every conversation is guided to the right person — a trained volunteer first, and a counsellor when it's needed.</p>
+        </div>
+      </div>
+    </section>
+
+    <svg class="muqarnas-divider" viewBox="0 0 400 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="muqHome" width="40" height="24" patternUnits="userSpaceOnUse">
+          <path d="M0,24 L0,16 L8,16 L8,9 L16,9 L16,3 L24,3 L24,9 L32,9 L32,16 L40,16 L40,24" fill="none" stroke="#B8862E" stroke-width="1.3"/>
+        </pattern>
+      </defs>
+      <rect width="400" height="24" fill="url(#muqHome)"/>
+    </svg>
+
+    <section class="tinted">
+      <div style="padding:0 40px;">
+      <div class="section-head reveal">
+        <div class="eyebrow">Featured Voices</div>
+        <h2>Stories and conversations worth hearing.</h2>
+      </div>
+      <div class="voice-grid" id="homeVoicePreview"></div>
+      <div style="text-align:center; margin-top:40px;">
+        <a class="btn-secondary reveal" href="#" onclick="goPage('voices');return false;">Explore All Voices →</a>
+      </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head reveal">
+        <div class="eyebrow">How it works</div>
+        <h2>Reaching out is simpler than you think.</h2>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-num">01</div>
+          <h3>Message us on WhatsApp</h3>
+          <p>Send a message whenever you're ready — there's no script to follow, just start where you are.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">02</div>
+          <h3>A volunteer listens</h3>
+          <p>A trained volunteer responds, understands what you're going through, and notes what kind of support fits best.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">03</div>
+          <h3>You're connected to the right person</h3>
+          <p>Depending on what you need, you're matched with a counsellor who can genuinely help — no waiting in the wrong queue.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="resource-strip reveal">
+        <div>
+          <h3>In immediate danger or crisis?</h3>
+          <p>If you or someone you know is in crisis, please don't wait for a reply here — reach a helpline or emergency service first.</p>
+        </div>
+        <a class="btn-primary" href="#" onclick="goPage('resources');return false;">See Crisis Resources</a>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= VOICES / MEDIA HUB ================= -->
+  <div class="page" id="page-voices">
+    <div class="page-hero jaali-bg">
+      <div class="eyebrow reveal">Voices</div>
+      <h1 class="reveal">Podcasts &amp; articles, in our own words.</h1>
+      <p class="reveal">Conversations on faith, motherhood, marriage, grief, and healing — by and for Dawoodi Bohra women. Everything here links out to the original episode or piece.</p>
+    </div>
+    <div class="filter-row" id="filterRow"></div>
+    <div class="media-grid" id="mediaGrid"></div>
+  </div>
+
+  <!-- ================= FIND SUPPORT ================= -->
+  <div class="page" id="page-support">
+    <div class="support-wrap">
+      <div class="support-copy">
+        <div class="eyebrow reveal">Find Support</div>
+        <h1 class="reveal">Whatever you're carrying, you don't have to carry it silently.</h1>
+        <p class="reveal">She Rises is not therapy, and it's not a hotline that leaves you on hold. It's a real person — from your own community — who listens first, and helps you find the right next step.</p>
+        <div class="assurance-list">
+          <div class="assurance-item reveal">
+            <div class="assurance-dot"></div>
+            <div><h4>Your name stays with you</h4><p>Only the person supporting you sees your details. Nothing is shared beyond that.</p></div>
+          </div>
+          <div class="assurance-item reveal">
+            <div class="assurance-dot"></div>
+            <div><h4>No judgement, no lectures</h4><p>Whether it's marriage, family, faith, or your own mind — you'll be heard, not corrected.</p></div>
+          </div>
+          <div class="assurance-item reveal">
+            <div class="assurance-dot"></div>
+            <div><h4>You set the pace</h4><p>Share as much or as little as you want. There's no form to fill before someone responds.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="support-card reveal">
+        <h3>Start on WhatsApp</h3>
+        <p>The quickest way to reach us. A volunteer typically responds personally.</p>
+        <a class="whatsapp-btn" href="https://wa.link/kwwqdl" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 4a11 11 0 0 0-17 13.3L2 22l4.9-1a11 11 0 0 0 13.1-17Z" stroke="#FBF3EC" stroke-width="1.6"/></svg>
+          Message She Rises
+        </a>
+        <p class="support-note">If this is a life-threatening emergency, please contact local emergency services or a crisis line immediately — see Resources.</p>
+      </div>
+    </div>
+
+    <section style="padding-top:0;">
+      <div class="section-head reveal">
+        <div class="eyebrow">What happens after you message</div>
+        <h2>A clear path, every time.</h2>
+      </div>
+      <div class="process-steps">
+        <div class="process-step reveal">
+          <div class="process-num">1</div>
+          <div><h4>You message us, whenever you're ready</h4><p>There's no "right way" to start the conversation.</p></div>
+        </div>
+        <div class="process-step reveal">
+          <div class="process-num">2</div>
+          <div><h4>A volunteer understands your situation</h4><p>They'll ask gentle questions to understand what kind of support would help most.</p></div>
+        </div>
+        <div class="process-step reveal">
+          <div class="process-num">3</div>
+          <div><h4>You're matched with the right counsellor</h4><p>Based on what you're going through — not just whoever is free.</p></div>
+        </div>
+        <div class="process-step reveal">
+          <div class="process-num">4</div>
+          <div><h4>Ongoing support, at your pace</h4><p>You decide how often you'd like to talk, and for how long.</p></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= FIND A COUNSELLOR ================= -->
+  <div class="page" id="page-counsellors">
+    <div class="page-hero jaali-bg">
+      <div class="eyebrow reveal">Find a Counsellor</div>
+      <h1 class="reveal">Browse by what you're facing, or where you are.</h1>
+      <p class="reveal">Every counsellor here works with our team. To keep everyone safe, requests are still routed through a volunteer first — they'll do their best to match you with whoever you choose below.</p>
+    </div>
+
+    <div class="counsellor-note reveal">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:1px;"><path d="M12 8v5M12 16h.01M12 3l9 16H3L12 3Z" stroke="#2A4A40" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <div>Browsing here doesn't message anyone directly — it just helps you (and our volunteer) know who might be the right fit before you reach out.</div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-group-label">Filter by what you're facing</div>
+      <div class="filter-row" id="counsellorTagFilters" style="margin:0;"></div>
+    </div>
+    <div class="filter-group">
+      <div class="filter-group-label">Filter by location</div>
+      <div class="filter-row" id="counsellorLocFilters" style="margin:0 0 30px;"></div>
+    </div>
+
+    <div class="counsellor-grid" id="counsellorGrid"></div>
+  </div>
+
+  <!-- ================= RESOURCES ================= -->
+  <div class="page" id="page-resources">
+    <div class="resources-hero jaali-bg">
+      <div class="eyebrow reveal">Resources</div>
+      <h1 class="reveal" style="max-width:22ch;">Support that doesn't wait for a reply.</h1>
+      <p class="reveal" style="color:var(--ink-soft); max-width:60ch; margin-top:14px;">These are available right now, any time — no need to wait for She Rises to respond first.</p>
+    </div>
+
+    <div class="crisis-banner reveal">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:2px;"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="#FBF3EC" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <div style="flex:1;">
+        <h3>If you're in immediate danger or thinking of harming yourself</h3>
+        <p>Please reach out to one of these right away — they're free, confidential, and available now.</p>
+        <div class="helpline-grid">
+          <div class="helpline"><div class="num">1800-599-0019</div><div class="lbl">KIRAN Mental Health Helpline (India, 24/7)</div></div>
+          <div class="helpline"><div class="num">9152987821</div><div class="lbl">iCall Psychosocial Helpline (India)</div></div>
+          <div class="helpline"><div class="num">1860-2662-345</div><div class="lbl">Vandrevala Foundation (India, 24/7)</div></div>
+          <div class="helpline"><div class="num">112</div><div class="lbl">Emergency services (India)</div></div>
+        </div>
+        <p style="margin-top:14px; font-size:0.8rem; opacity:0.85;">Outside India: 988 (US &amp; Canada Suicide &amp; Crisis Lifeline) · 116 123 Samaritans (UK) · or search "crisis helpline" + your country.</p>
+      </div>
+    </div>
+
+    <div class="resource-cat">
+      <h3><span class="resource-cat-dot"></span>Talk to someone</h3>
+      <div class="resource-items">
+        <div class="resource-item"><div><h4>Message She Rises on WhatsApp</h4><p>A volunteer from the community, usually within a day</p></div><a class="btn-secondary" style="padding:9px 16px; font-size:0.85rem;" href="https://wa.link/kwwqdl" target="_blank">Open →</a></div>
+        <div class="resource-item"><div><h4>iCall by TISS</h4><p>Free, confidential counselling by trained professionals</p></div><span class="eyebrow">9152987821</span></div>
+      </div>
+    </div>
+
+    <div class="resource-cat">
+      <h3><span class="resource-cat-dot"></span>Understand what you're feeling</h3>
+      <div class="resource-items">
+        <div class="resource-item"><div><h4>Explore Voices</h4><p>Articles &amp; podcasts on mental health, marriage, motherhood</p></div><a class="btn-secondary" style="padding:9px 16px; font-size:0.85rem;" href="#" onclick="goPage('voices');return false;">Browse →</a></div>
+        <div class="resource-item"><div><h4>Recognising burnout &amp; overwhelm</h4><p>A short guide on early signs, from our Voices library</p></div><a class="btn-secondary" style="padding:9px 16px; font-size:0.85rem;" href="#" onclick="goPage('voices');return false;">Read →</a></div>
+      </div>
+    </div>
+
+    <div class="resource-cat">
+      <h3><span class="resource-cat-dot"></span>Facing domestic violence</h3>
+      <div class="resource-items">
+        <div class="resource-item"><div><h4>Women's Helpline (India)</h4><p>National helpline for women in distress, 24/7</p></div><span class="eyebrow">181</span></div>
+        <div class="resource-item"><div><h4>National Commission for Women</h4><p>Complaint &amp; support cell</p></div><span class="eyebrow">7827170170</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ABOUT ================= -->
+  <div class="page" id="page-about">
+    <div class="about-hero jaali-bg">
+      <div>
+        <div class="eyebrow reveal">Our Story</div>
+        <h1 class="reveal">Built from within the community, for the community.</h1>
+        <p class="reveal">She Rises began as a simple idea: Dawoodi Bohra women needed a space to talk that truly understood their world — the faith, the family ties, the expectations, and the quiet struggles that often go unspoken.</p>
+        <p class="reveal">What started as informal conversations has grown into a small but dedicated circle of volunteers and counsellors, working to make sure no woman in our community feels she has nowhere to turn.</p>
+        <a class="btn-primary reveal" href="https://www.instagram.com/sherises.dawoodibohra/" target="_blank" rel="noopener" style="margin-top:10px;">Follow @sherises.dawoodibohra →</a>
+      </div>
+      <div class="about-motif reveal">
+        <svg viewBox="0 0 100 100" fill="none">
+          <path d="M50 82 C30 66 16 48 16 30 C16 18 26 10 36 13.5 C43 16 47 22 50 28 C53 22 57 16 64 13.5 C74 10 84 18 84 30 C84 48 70 66 50 82 Z" fill="#7C2D42"/>
+          <path d="M50 26 C58 12 76 7 86 17" stroke="#7C2D42" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <section>
+      <div class="section-head reveal">
+        <div class="eyebrow">What guides us</div>
+        <h2>Our values.</h2>
+      </div>
+      <div class="values-grid">
+        <div class="value-block reveal"><h4>Faith-rooted, not faith-avoidant</h4><p>We don't ask women to set aside their beliefs to get support — our approach holds both together.</p></div>
+        <div class="value-block reveal"><h4>Confidential by default</h4><p>Every conversation is treated with the same privacy you'd expect from family — but without the judgement.</p></div>
+        <div class="value-block reveal"><h4>Community-trained volunteers</h4><p>Our volunteers are trained to listen, triage, and connect — not to diagnose or replace professional care.</p></div>
+        <div class="value-block reveal"><h4>Always a path forward</h4><p>Whether it's a listening ear or a licensed counsellor, every woman who reaches out is guided to a next step.</p></div>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-wrap">
+    <div class="footer-brand">
+      <div class="brand-name">She Rises</div>
+      <p>A safe space for Dawoodi Bohra women — to be heard, to find support, to rise.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Explore</h4>
+        <a href="#" onclick="goPage('voices');return false;">Voices</a>
+        <a href="#" onclick="goPage('support');return false;">Find Support</a>
+        <a href="#" onclick="goPage('counsellors');return false;">Find a Counsellor</a>
+        <a href="#" onclick="goPage('resources');return false;">Resources</a>
+      </div>
+      <div class="footer-col">
+        <h4>Connect</h4>
+        <a href="https://wa.link/kwwqdl" target="_blank">WhatsApp</a>
+        <a href="https://www.instagram.com/sherises.dawoodibohra/" target="_blank">Instagram</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">She Rises is a community peer-support initiative and does not replace licensed medical or psychiatric care. In an emergency, contact local emergency services.</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // ============================================================
+  // SUPABASE CONFIG — paste your project values here after setup
+  // Project Settings → API → Project URL / anon public key
+  // ============================================================
+  const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';       // e.g. https://xxxxxxxx.supabase.co
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';     // the public "anon" key, safe to expose client-side
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+<script>
+  // ---------- Page routing ----------
+  function goPage(name){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+name).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===name));
+    document.getElementById('mainNav').classList.remove('mobile-open');
+    window.scrollTo({top:0, behavior:'instant'});
+    setTimeout(initReveal, 30);
+  }
+
+  // ---------- Media content (loaded from shared storage, managed via /add-media) ----------
+  const MEDIA_STORAGE_KEY = 'sherises-media-v1';
+  let media = [];
+  let activeTag = 'All';
+
+  function seedMedia(){
+    return [
+      {type:'Podcast', tag:'Motherhood', title:'Becoming a mother, without losing yourself', teaser:'Two Bohra mothers talk candidly about identity, exhaustion, and joy after having children.', url:'#', grad:['#E3A9BE','#E3C68C']},
+      {type:'Article', tag:'Mental Health', title:'What anxiety actually feels like — in our own words', teaser:'A reader-submitted piece describing the physical and emotional weight of anxiety.', url:'#', grad:['#DCE9E4','#E3A9BE']},
+      {type:'Podcast', tag:'Marriage', title:"When the rishta doesn't match the reality", teaser:'A frank conversation on expectation versus experience in early marriage.', url:'#', grad:['#E3C68C','#742842']},
+      {type:'Article', tag:'Faith & Healing', title:'Finding comfort in dua during hard seasons', teaser:'How prayer and professional support can coexist, not compete.', url:'#', grad:['#E3A9BE','#DCE9E4']},
+      {type:'Podcast', tag:'Grief', title:'Grieving a parent while holding a family together', teaser:'On loss, duty, and giving yourself permission to fall apart sometimes.', url:'#', grad:['#DCE9E4','#E3C68C']},
+      {type:'Article', tag:'Domestic Life', title:'Setting boundaries without guilt', teaser:'Practical language for saying no within close-knit family structures.', url:'#', grad:['#E3C68C','#E3A9BE']},
+    ];
+  }
+
+  async function loadMedia(){
+    try{
+      const { data, error } = await sb.from('media').select('*').eq('published', true).order('created_at', {ascending:false});
+      if(error) throw error;
+      media = (data && data.length) ? data.map(m=>({
+        type: m.type.charAt(0).toUpperCase()+m.type.slice(1), // 'podcast' -> 'Podcast'
+        tag: m.tag, title: m.title, teaser: m.teaser, url: m.url,
+        grad: [m.gradient_start || '#E3A9BE', m.gradient_end || '#E3C68C']
+      })) : seedMedia();
+    }catch(e){
+      console.warn('Supabase media fetch failed (using placeholder data). Check SUPABASE_URL/ANON_KEY are set.', e);
+      media = seedMedia();
+    }
+    renderVoicesPage();
+    renderHomePreview();
+  }
+
+  function archIcon(grad){
+    return `<div class="voice-top" style="background:linear-gradient(135deg, ${grad[0]}, ${grad[1]});">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 20s-6.5-4-8.5-8C2 8.5 3.5 5 7 5c2 0 3.4 1.2 5 3.3C13.6 6.2 15 5 17 5c3.5 0 5 3.5 3.5 7-2 4-8.5 8-8.5 8Z" fill="#742842" opacity="0.85"/></svg>
+    </div>`;
+  }
+
+  function mediaCardHTML(m){
+    return `<div class="voice-card media-card reveal">
+      ${archIcon(m.grad || ['#E3A9BE','#E3C68C'])}
+      <div class="voice-body">
+        <div class="voice-tag">${m.tag}</div>
+        <h3>${m.title}</h3>
+        <p>${m.teaser}</p>
+        <a class="voice-link" href="${m.url}" target="_blank" rel="noopener">${m.type==='Podcast' || m.type==='Reel' ? 'Watch / listen now' : 'Read article'} →</a>
+      </div>
+    </div>`;
+  }
+
+  function renderVoicesPage(){
+    const tags = ['All', ...new Set(media.map(m=>m.tag))];
+    const filterRow = document.getElementById('filterRow');
+    filterRow.innerHTML = tags.map(t=>`<button class="filter-chip ${t===activeTag?'active':''}" onclick="setFilter('${t}')">${t}</button>`).join('');
+    const grid = document.getElementById('mediaGrid');
+    const list = activeTag==='All' ? media : media.filter(m=>m.tag===activeTag);
+    grid.innerHTML = list.length ? list.map(mediaCardHTML).join('') : '<div class="media-empty">No pieces tagged this way yet — check back soon.</div>';
+    initReveal();
+  }
+  function setFilter(t){ activeTag = t; renderVoicesPage(); }
+
+  function renderHomePreview(){
+    document.getElementById('homeVoicePreview').innerHTML = media.slice(0,3).map(mediaCardHTML).join('');
+  }
+
+  // ---------- Counsellor directory ----------
+  const counsellorTags = ['Depression','Anxiety','Domestic Violence','Suicidal Thoughts','Marital Conflict','Grief','Motherhood Stress','Faith & Guilt'];
+  let counsellors = [];
+  let counsellorLocations = ['All'];
+  let activeCounsellorTag = 'All';
+  let activeCounsellorLoc = 'All';
+
+  function seedCounsellors(){
+    return [
+      {name:'Dr. Tasneem Bharmal', cred:'Clinical Psychologist', location:'Mumbai', languages:'English, Gujarati', specialties:['Depression','Anxiety','Grief'], bio:'Works with women navigating anxiety, depression, and loss — with a gentle, faith-aware approach.'},
+      {name:'Bazat Sakina', cred:'Community Counsellor', location:'Surat', languages:'Gujarati, Lisan al-Dawat', specialties:['Domestic Violence','Marital Conflict'], bio:'Focuses on marital stress and situations of control or abuse at home, with deep community context.'},
+      {name:'Fatema Contractor', cred:'Licensed Therapist', location:'London', languages:'English', specialties:['Anxiety','Motherhood Stress'], bio:'Supports new and expecting mothers through anxiety, overwhelm, and identity shifts after childbirth.'},
+      {name:'Zainab Rangwala', cred:'Marriage & Family Counsellor', location:'Dubai', languages:'English, Arabic, Gujarati', specialties:['Marital Conflict','Faith & Guilt'], bio:'Helps couples and individuals work through conflict, expectation, and questions of faith and duty.'},
+      {name:'Amina Vora', cred:'Trauma-Informed Counsellor', location:'Online only', languages:'English, Gujarati', specialties:['Suicidal Thoughts','Domestic Violence','Depression'], bio:'Specialises in crisis and trauma support — often the first point of contact for the most urgent cases.'},
+      {name:'Husna Diwan', cred:'Grief & Bereavement Counsellor', location:'Mumbai', languages:'English, Gujarati, Urdu', specialties:['Grief','Faith & Guilt'], bio:'Walks with women through loss, drawing on both counselling practice and community ritual.'},
+    ];
+  }
+
+  async function loadCounsellors(){
+    try{
+      const { data, error } = await sb.from('profiles')
+        .select('full_name, credential, location, languages, specialties, public_bio')
+        .eq('is_public_listed', true);
+      if(error) throw error;
+      counsellors = (data && data.length) ? data.map(c=>({
+        name: c.full_name, cred: c.credential, location: c.location,
+        languages: c.languages, specialties: c.specialties || [], bio: c.public_bio
+      })) : seedCounsellors();
+    }catch(e){
+      console.warn('Supabase counsellor fetch failed (using placeholder data). Check SUPABASE_URL/ANON_KEY are set.', e);
+      counsellors = seedCounsellors();
+    }
+    counsellorLocations = ['All', ...new Set(counsellors.map(c=>c.location))];
+    renderCounsellorsPage();
+  }
+
+  function initials(name){
+    return name.replace('Dr. ','').split(' ').map(w=>w[0]).slice(0,2).join('');
+  }
+
+  function counsellorCardHTML(c){
+    return `<div class="counsellor-card reveal">
+      <div class="counsellor-top">
+        <div class="avatar-circle">${initials(c.name)}</div>
+        <div>
+          <div class="counsellor-name">${c.name}</div>
+          <div class="counsellor-cred">${c.cred}</div>
+        </div>
+      </div>
+      <div class="counsellor-meta">
+        <span>📍 ${c.location}</span>
+        <span>🗣 ${c.languages}</span>
+      </div>
+      <p class="counsellor-bio">${c.bio}</p>
+      <div class="counsellor-tags">${c.specialties.map(t=>`<span class="tag-pill">${t}</span>`).join('')}</div>
+      <a class="counsellor-cta" href="https://wa.link/kwwqdl" target="_blank" rel="noopener">Request to Connect with ${c.name.split(' ')[0]}</a>
+    </div>`;
+  }
+
+  function renderCounsellorsPage(){
+    document.getElementById('counsellorTagFilters').innerHTML = ['All', ...counsellorTags].map(t=>
+      `<button class="filter-chip ${t===activeCounsellorTag?'active':''}" onclick="setCounsellorTag('${t}')">${t}</button>`
+    ).join('');
+    document.getElementById('counsellorLocFilters').innerHTML = counsellorLocations.map(l=>
+      `<button class="filter-chip ${l===activeCounsellorLoc?'active':''}" onclick="setCounsellorLoc('${l}')">${l}</button>`
+    ).join('');
+    let list = counsellors;
+    if(activeCounsellorTag!=='All') list = list.filter(c=>c.specialties.includes(activeCounsellorTag));
+    if(activeCounsellorLoc!=='All') list = list.filter(c=>c.location===activeCounsellorLoc);
+    const grid = document.getElementById('counsellorGrid');
+    grid.innerHTML = list.length ? list.map(counsellorCardHTML).join('') : '<div class="media-empty" style="grid-column:1/-1;">No one matches both filters right now — try broadening your search, or message us directly and we\'ll find the right fit.</div>';
+    initReveal();
+  }
+  function setCounsellorTag(t){ activeCounsellorTag = t; renderCounsellorsPage(); }
+  function setCounsellorLoc(l){ activeCounsellorLoc = l; renderCounsellorsPage(); }
+
+
+  // ---------- Scroll reveal ----------
+  function initReveal(){
+    const els = document.querySelectorAll('.reveal:not(.in)');
+    const obs = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target);} });
+    }, {threshold:0.12});
+    els.forEach(el=>obs.observe(el));
+  }
+
+  loadMedia();
+  loadCounsellors();
+  initReveal();
+  window.addEventListener('DOMContentLoaded', initReveal);
+</script>
+
+</body>
+</html>
