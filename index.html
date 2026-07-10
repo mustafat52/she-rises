@@ -203,6 +203,14 @@
   .voice-top{
     height:120px; display:flex; align-items:center; justify-content:center; position:relative;
   }
+
+  .reel-embed-wrap{
+  background:var(--ivory-deep); display:flex; align-items:center; justify-content:center;
+  min-height:180px; height:auto; overflow:hidden; padding:8px 0;
+  }
+  .reel-embed-wrap iframe{ margin:0 !important; }
+
+
   .voice-badge{
     position:absolute; top:14px; left:14px; font-family:'IBM Plex Mono', monospace; font-size:0.66rem;
     letter-spacing:0.08em; text-transform:uppercase; background:rgba(255,255,255,0.85); color:var(--rose-deep);
@@ -778,17 +786,32 @@
     </div>`;
   }
 
-  function mediaCardHTML(m){
-    return `<div class="voice-card media-card reveal">
-      ${archIcon(m.grad || ['#E3A9BE','#E3C68C'])}
-      <div class="voice-body">
-        <div class="voice-tag">${m.tag}</div>
-        <h3>${m.title}</h3>
-        <p>${m.teaser}</p>
-        <a class="voice-link" href="${m.url}" target="_blank" rel="noopener">${m.type==='Podcast' || m.type==='Reel' ? 'Watch / listen now' : 'Read article'} →</a>
-      </div>
-    </div>`;
+  function reelEmbedHTML(url){
+  return `<div class="voice-top reel-embed-wrap">
+    <blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-version="14" style="margin:0; width:100%; min-width:0;"></blockquote>
+  </div>`;
+}
+
+function processInstagramEmbeds(){
+  if(window.instgrm && window.instgrm.Embeds){
+    window.instgrm.Embeds.process();
   }
+}
+
+function mediaCardHTML(m){
+  const topSection = (m.type === 'Reel' && m.url && m.url !== '#')
+    ? reelEmbedHTML(m.url)
+    : archIcon(m.grad || ['#E3A9BE','#E3C68C']);
+  return `<div class="voice-card media-card reveal">
+    ${topSection}
+    <div class="voice-body">
+      <div class="voice-tag">${m.tag}</div>
+      <h3>${m.title}</h3>
+      <p>${m.teaser}</p>
+      <a class="voice-link" href="${m.url}" target="_blank" rel="noopener">${m.type==='Podcast' || m.type==='Reel' ? 'Watch / listen now' : 'Read article'} →</a>
+    </div>
+  </div>`;
+}
 
   function renderVoicesPage(){
     const tags = ['All', ...new Set(media.map(m=>m.tag))];
@@ -798,6 +821,7 @@
     const list = activeTag==='All' ? media : media.filter(m=>m.tag===activeTag);
     grid.innerHTML = list.length ? list.map(mediaCardHTML).join('') : '<div class="media-empty">No pieces tagged this way yet — check back soon.</div>';
     initReveal();
+    processInstagramEmbeds();
   }
   function setFilter(t){ activeTag = t; renderVoicesPage(); }
 
@@ -896,6 +920,6 @@
   initReveal();
   window.addEventListener('DOMContentLoaded', initReveal);
 </script>
-
+<script async src="//www.instagram.com/embed.js"></script>
 </body>
 </html>
