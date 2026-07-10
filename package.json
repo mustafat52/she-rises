@@ -1,0 +1,8 @@
+{
+  "name": "site-config",
+  "private": true,
+  "scripts": {
+    "build:config": "node scripts/build-config.js",
+    "build": "node scripts/build-config.js"
+  }
+}
