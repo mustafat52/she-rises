@@ -186,6 +186,44 @@
 
   .loading-row{text-align:center; padding:60px; color:var(--ink-soft);}
 
+  /* ---------- Conversations (chat) view ---------- */
+  .conv-wrap{display:grid; grid-template-columns:320px 1fr; gap:20px; height:calc(100vh - 220px); min-height:420px;}
+  .conv-list{overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:6px;}
+  .conv-item{
+    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:12px; padding:14px; cursor:pointer;
+    transition:background .15s, border-color .15s;
+  }
+  .conv-item:hover{background:var(--ivory-deep);}
+  .conv-item.active{border-color:var(--rose-deep); background:var(--rose-soft); background:#F8E7EE;}
+  .conv-item .conv-item-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;}
+  .conv-item .conv-ref{font-family:'IBM Plex Mono',monospace; font-size:0.7rem; color:var(--ink-soft);}
+  .conv-item .conv-sev{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .conv-item .conv-sev.crisis{background:var(--danger);}
+  .conv-item .conv-sev.high{background:var(--warn);}
+  .conv-item .conv-sev.standard{background:var(--teal);}
+  .conv-item .conv-preview{font-size:0.84rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .conv-item .conv-time{font-size:0.72rem; color:var(--ink-soft); margin-top:3px;}
+
+  .conv-thread{background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:16px; display:flex; flex-direction:column; overflow:hidden;}
+  .conv-empty{margin:auto; color:var(--ink-soft); font-size:0.92rem; text-align:center; padding:40px;}
+  .conv-thread-head{
+    padding:16px 20px; border-bottom:1px solid rgba(116,40,66,0.1); display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .conv-thread-head h3{font-size:1rem; margin:0;}
+  .conv-thread-messages{flex:1; overflow-y:auto; padding:18px 20px; display:flex; flex-direction:column; gap:12px;}
+  .conv-msg{max-width:72%; padding:11px 14px; border-radius:14px; font-size:0.9rem; line-height:1.5;}
+  .conv-msg-seeker{align-self:flex-start; background:var(--ivory-deep); border-bottom-left-radius:4px;}
+  .conv-msg-staff{align-self:flex-end; background:var(--rose-deep); color:var(--ivory); border-bottom-right-radius:4px;}
+  .conv-msg-staff .conv-msg-from{font-family:'IBM Plex Mono',monospace; font-size:0.65rem; text-transform:uppercase; opacity:0.8; margin-bottom:3px; display:block;}
+  .conv-thread-input{display:flex; gap:10px; padding:14px 20px; border-top:1px solid rgba(116,40,66,0.1);}
+  .conv-thread-input textarea{
+    flex:1; padding:11px 13px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2); font-size:0.92rem; resize:none; max-height:90px;
+  }
+  .conv-thread-input button{background:var(--rose-deep); color:var(--ivory); padding:0 18px; border-radius:10px; font-weight:700;}
+  .conv-thread-input button:hover{background:var(--rose-deep-dark);}
+  @media(max-width:860px){ .conv-wrap{grid-template-columns:1fr; height:auto;} .conv-list{max-height:220px;} }
+
+
   @media(max-width:860px){
     #app.active{grid-template-columns:1fr; grid-template-rows:auto 1fr;}
     aside{flex-direction:row; align-items:center; overflow-x:auto; padding:16px 18px;}
@@ -223,6 +261,11 @@
       <div class="role-badge" id="sideRole">Volunteer</div>
       <div class="uname" id="sideName">—</div>
     </div>
+    <div id="awayToggleWrap" style="display:none; margin-bottom:14px;">
+      <label style="display:flex; align-items:center; gap:8px; color:#F4DEE4; font-size:0.85rem; cursor:pointer;">
+        <input type="checkbox" id="awayToggle" onchange="toggleAway()"> Away (pause new conversations)
+      </label>
+    </div>
     <nav class="side-nav" id="sideNav"></nav>
     <button class="logout-btn" onclick="logout()">← Sign out</button>
   </aside>
@@ -233,11 +276,18 @@
         <h1 id="viewTitle">Triage Inbox</h1>
         <p id="viewSub">New cases from the WhatsApp line, waiting to be reviewed.</p>
       </div>
-      <button class="btn-new" onclick="openNewCaseModal()">+ Log New Case</button>
+      <button class="btn-new" id="btnNewCase" onclick="openNewCaseModal()">+ Log New Case</button>
     </div>
 
     <div class="toolbar" id="toolbar"></div>
     <div class="case-list" id="caseList"><div class="loading-row">Loading cases…</div></div>
+
+    <div class="conv-wrap" id="convWrap" style="display:none;">
+      <div class="conv-list" id="convList"><div class="loading-row">Loading conversations…</div></div>
+      <div class="conv-thread" id="convThread">
+        <div class="conv-empty">Select a conversation from the left to view it.</div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -246,15 +296,14 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
   // ============================================================
-  // SUPABASE CONFIG — loaded from config.js (generated from .env.local)
-  // Run `npm run build:config` after editing .env.local
+  // SUPABASE CONFIG — paste your project values here after setup
+  // Project Settings → API → Project URL / anon public key
   // ============================================================
-  const SUPABASE_URL = window.SUPABASE_URL;
-  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+  const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';       // e.g. https://xxxxxxxx.supabase.co
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';     // the public "anon" key, safe to expose client-side
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // ================= CONFIG =================
@@ -296,6 +345,7 @@
     document.getElementById('app').style.display='grid';
     document.getElementById('sideName').textContent = currentUser.name;
     document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : 'Admin';
+    setupAwayToggle(profile);
     activeView = currentUser.role==='volunteer' ? 'inbox' : 'mine';
     await loadCounsellorList();
     buildSideNav();
@@ -326,6 +376,7 @@
         document.getElementById('app').style.display='grid';
         document.getElementById('sideName').textContent = currentUser.name;
         document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : 'Admin';
+        setupAwayToggle(profile);
         activeView = currentUser.role==='volunteer' ? 'inbox' : 'mine';
         await loadCounsellorList();
         buildSideNav();
@@ -333,6 +384,16 @@
       }
     }catch(e){ console.warn('No existing session (or Supabase not configured yet).', e); }
   })();
+
+  function setupAwayToggle(profile){
+    const wrap = document.getElementById('awayToggleWrap');
+    if(profile.role === 'volunteer'){
+      wrap.style.display = 'block';
+      document.getElementById('awayToggle').checked = !!profile.is_away;
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
 
   async function loadCounsellorList(){
     try{
@@ -347,6 +408,7 @@
     let links = [];
     if(currentUser.role==='volunteer' || currentUser.role==='admin'){
       links = [
+        {id:'conversations', label:'Conversations'},
         {id:'inbox', label:'Triage Inbox'},
         {id:'assigned', label:'Assigned / In Progress'},
         {id:'all', label:'All Cases'},
@@ -354,6 +416,7 @@
       ];
     } else {
       links = [
+        {id:'conversations', label:'Conversations'},
         {id:'mine', label:'My Cases'},
         {id:'resolved', label:'Resolved'},
       ];
@@ -363,10 +426,190 @@
     </div>`).join('');
   }
 
-  function setView(v){ activeView = v; activeTagFilter='All'; buildSideNav(); render(); }
+  function setView(v){
+    activeView = v; activeTagFilter='All'; buildSideNav();
+    if(v === 'conversations'){
+      document.getElementById('caseList').style.display = 'none';
+      document.getElementById('toolbar').style.display = 'none';
+      document.getElementById('convWrap').style.display = 'grid';
+      document.getElementById('viewTitle').textContent = 'Conversations';
+      document.getElementById('viewSub').textContent = 'Live chats with women who\'ve reached out — reply here.';
+      document.getElementById('btnNewCase').style.display = 'none';
+      loadConversations();
+    } else {
+      document.getElementById('caseList').style.display = 'flex';
+      document.getElementById('toolbar').style.display = 'flex';
+      document.getElementById('convWrap').style.display = 'none';
+      document.getElementById('btnNewCase').style.display = 'block';
+      if(convPollInterval) clearInterval(convPollInterval);
+      render();
+    }
+  }
 
-  // ================= DATA (Supabase) =================
-  // RLS does the real access control here: volunteers/admins can read every
+  // ================= CONVERSATIONS (chat) =================
+  let conversations = [];
+  let activeConvCaseId = null;
+  let convPollInterval = null;
+
+  async function loadConversations(){
+    try{
+      const { data, error } = await sb.from('cases')
+        .select('*, case_messages(id, sender_type, body, created_at)')
+        .eq('source', 'chat')
+        .order('updated_at', { ascending:false });
+      if(error) throw error;
+      conversations = (currentUser.role==='volunteer' || currentUser.role==='admin')
+        ? (data || [])
+        : (data || []).filter(c => c.assigned_to === currentUser.id);
+      renderConversationList();
+      if(activeConvCaseId){
+        const still = conversations.find(c=>c.id===activeConvCaseId);
+        if(still) renderConversationThread(still);
+      }
+    }catch(e){
+      console.error('Could not load conversations', e);
+      document.getElementById('convList').innerHTML = '<div class="loading-row">Could not load conversations</div>';
+    }
+    if(!convPollInterval){
+      convPollInterval = setInterval(loadConversations, 8000);
+    }
+  }
+
+  function renderConversationList(){
+    const list = document.getElementById('convList');
+    if(!conversations.length){ list.innerHTML = '<div class="loading-row">No conversations yet.</div>'; return; }
+    list.innerHTML = conversations.map(c=>{
+      const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+      const last = msgs[msgs.length-1];
+      const preview = last ? last.body : '(no messages yet)';
+      const time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
+      return `<div class="conv-item ${c.id===activeConvCaseId?'active':''}" onclick="selectConversation('${c.id}')">
+        <div class="conv-item-top">
+          <span class="conv-ref">${c.case_ref}</span>
+          <span class="conv-sev ${c.severity}"></span>
+        </div>
+        <div class="conv-preview">${preview}</div>
+        <div class="conv-time">${time}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function selectConversation(caseId){
+    activeConvCaseId = caseId;
+    renderConversationList();
+    const c = conversations.find(x=>x.id===caseId);
+    if(c) renderConversationThread(c);
+  }
+
+  function renderConversationThread(c){
+    const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+    const canReply = currentUser.role==='volunteer' || currentUser.role==='admin' || c.assigned_to===currentUser.id;
+    const statusLabel = {new:'New', triaged:'Triaged', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'}[c.status] || c.status;
+    document.getElementById('convThread').innerHTML = `
+      <div class="conv-thread-head">
+        <h3>${c.case_ref} <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${statusLabel}</span></h3>
+        <div style="display:flex; gap:8px;">
+          ${(currentUser.role==='volunteer' || currentUser.role==='admin') ? `<button class="act-btn" onclick="openEscalateModal('${c.id}')">Escalate to Counsellor</button>` : ''}
+          ${c.status!=='resolved' ? `<button class="act-btn primary" onclick="resolveConversation('${c.id}')">Mark Resolved</button>` : ''}
+        </div>
+      </div>
+      <div class="conv-thread-messages" id="convMessages">
+        ${msgs.map(m=>{
+          const isSeeker = m.sender_type === 'seeker';
+          return `<div class="conv-msg ${isSeeker?'conv-msg-seeker':'conv-msg-staff'}">
+            ${!isSeeker ? `<span class="conv-msg-from">${m.sender_type}</span>` : ''}
+            ${m.body}
+          </div>`;
+        }).join('')}
+      </div>
+      ${canReply ? `
+      <div class="conv-thread-input">
+        <textarea id="convReplyInput" rows="1" placeholder="Type a reply…" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendConvReply('${c.id}');}"></textarea>
+        <button onclick="sendConvReply('${c.id}')">Send</button>
+      </div>` : ''}
+    `;
+    const msgBox = document.getElementById('convMessages');
+    if(msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+  }
+
+  async function sendConvReply(caseId){
+    const input = document.getElementById('convReplyInput');
+    const text = input.value.trim();
+    if(!text) return;
+    input.value = '';
+    const senderType = currentUser.role === 'counsellor' ? 'counsellor' : 'volunteer';
+    try{
+      const { error } = await sb.from('case_messages').insert({
+        case_id: caseId, sender_type: senderType, sender_id: currentUser.id, body: text
+      });
+      if(error) throw error;
+      await sb.from('cases').update({ updated_at: new Date().toISOString() }).eq('id', caseId);
+    }catch(e){
+      console.error(e); showToast('Could not send: ' + (e.message || 'unknown error')); return;
+    }
+    await loadConversations();
+  }
+
+  async function resolveConversation(caseId){
+    try{
+      const { error } = await sb.from('cases').update({ status:'resolved', resolved_at: new Date().toISOString() }).eq('id', caseId);
+      if(error) throw error;
+    }catch(e){ console.error(e); showToast('Could not update'); return; }
+    showToast('Marked resolved');
+    await loadConversations();
+  }
+
+  function openEscalateModal(caseId){
+    editingCaseId = caseId; // reuse existing modal machinery
+    const c = conversations.find(x=>x.id===caseId);
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Escalate ${c.case_ref} to a counsellor</h2>
+      <p class="sub">She'll keep talking in the same conversation — the counsellor takes over from here.</p>
+      <div class="field"><label>Severity</label><div class="sev-select-grid" id="f_sev">
+        <button type="button" class="sev-opt standard ${c.severity==='standard'?'selected':''}" data-sev="standard" onclick="selectSev(this)">Standard</button>
+        <button type="button" class="sev-opt high ${c.severity==='high'?'selected':''}" data-sev="high" onclick="selectSev(this)">High Priority</button>
+        <button type="button" class="sev-opt crisis ${c.severity==='crisis'?'selected':''}" data-sev="crisis" onclick="selectSev(this)">Crisis</button>
+      </div></div>
+      <div class="field"><label>Assign to counsellor</label>
+        <select id="f_assign">
+          <option value="">— Choose —</option>
+          ${counsellorList.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveEscalation()">Escalate</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  async function saveEscalation(){
+    const sevEl = document.querySelector('#f_sev .sev-opt.selected');
+    const severity = sevEl ? sevEl.dataset.sev : 'standard';
+    const assignVal = document.getElementById('f_assign').value;
+    if(!assignVal){ showToast('Please choose a counsellor'); return; }
+    try{
+      const { error } = await sb.from('cases').update({
+        assigned_to: assignVal, severity, status: 'assigned'
+      }).eq('id', editingCaseId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not escalate: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    showToast('Escalated to counsellor');
+    await loadConversations();
+  }
+
+  async function toggleAway(){
+    const away = document.getElementById('awayToggle').checked;
+    try{
+      const { error } = await sb.from('profiles').update({ is_away: away }).eq('id', currentUser.id);
+      if(error) throw error;
+      showToast(away ? "You're marked away — no new conversations will be assigned to you" : "You're back — new conversations can be assigned to you");
+    }catch(e){ console.error(e); showToast('Could not update status'); }
+  }
+
   // row; counsellors only ever get rows where assigned_to = their own id.
   // The client-side filtering below is just about which *view* to show
   // within whatever the database already returned.
