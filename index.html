@@ -203,14 +203,6 @@
   .voice-top{
     height:120px; display:flex; align-items:center; justify-content:center; position:relative;
   }
-
-  .reel-embed-wrap{
-  background:var(--ivory-deep); display:flex; align-items:center; justify-content:center;
-  min-height:180px; height:auto; overflow:hidden; padding:8px 0;
-  }
-  .reel-embed-wrap iframe{ margin:0 !important; }
-
-
   .voice-badge{
     position:absolute; top:14px; left:14px; font-family:'IBM Plex Mono', monospace; font-size:0.66rem;
     letter-spacing:0.08em; text-transform:uppercase; background:rgba(255,255,255,0.85); color:var(--rose-deep);
@@ -412,7 +404,7 @@
       <button class="nav-btn" data-page="resources" onclick="goPage('resources')">Resources</button>
       <button class="nav-btn" data-page="about" onclick="goPage('about')">About</button>
     </nav>
-    <a class="nav-cta" href="https://wa.link/kwwqdl" target="_blank" rel="noopener">Reach Out</a>
+    <a class="nav-cta" href="/chat">Reach Out</a>
     <button class="mobile-toggle" onclick="document.getElementById('mainNav').classList.toggle('mobile-open')">☰</button>
   </div>
 </header>
@@ -427,7 +419,7 @@
         <h1 class="reveal">You are not alone <em>in this.</em></h1>
         <p class="lead reveal">She Rises is a space built by and for Dawoodi Bohra women — to be heard without judgement, to find real support, and to know that reaching out is never a weakness.</p>
         <div class="btn-row reveal">
-          <a class="btn-primary" href="#" onclick="goPage('support');return false;">Reach Out Now →</a>
+          <a class="btn-primary" href="/chat">Reach Out Now →</a>
           <a class="btn-secondary" href="#" onclick="goPage('voices');return false;">Listen First</a>
         </div>
       </div>
@@ -558,11 +550,11 @@
         </div>
       </div>
       <div class="support-card reveal">
-        <h3>Start on WhatsApp</h3>
-        <p>The quickest way to reach us. A volunteer typically responds personally.</p>
-        <a class="whatsapp-btn" href="https://wa.link/kwwqdl" target="_blank" rel="noopener">
+        <h3>Open Up Here</h3>
+        <p>No form, no account — just start typing. A volunteer typically responds personally.</p>
+        <a class="whatsapp-btn" href="/chat">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 4a11 11 0 0 0-17 13.3L2 22l4.9-1a11 11 0 0 0 13.1-17Z" stroke="#FBF3EC" stroke-width="1.6"/></svg>
-          Message She Rises
+          Start a Conversation
         </a>
         <p class="support-note">If this is a life-threatening emergency, please contact local emergency services or a crisis line immediately — see Resources.</p>
       </div>
@@ -725,15 +717,14 @@
   <div class="footer-bottom">She Rises is a community peer-support initiative and does not replace licensed medical or psychiatric care. In an emergency, contact local emergency services.</div>
 </footer>
 
-<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
   // ============================================================
-  // SUPABASE CONFIG — loaded from config.js (generated from .env.local)
-  // Run `npm run build:config` after editing .env.local
+  // SUPABASE CONFIG — paste your project values here after setup
+  // Project Settings → API → Project URL / anon public key
   // ============================================================
-  const SUPABASE_URL = window.SUPABASE_URL;
-  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+  const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';       // e.g. https://xxxxxxxx.supabase.co
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';     // the public "anon" key, safe to expose client-side
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 <script>
@@ -786,32 +777,17 @@
     </div>`;
   }
 
-  function reelEmbedHTML(url){
-  return `<div class="voice-top reel-embed-wrap">
-    <blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-version="14" style="margin:0; width:100%; min-width:0;"></blockquote>
-  </div>`;
-}
-
-function processInstagramEmbeds(){
-  if(window.instgrm && window.instgrm.Embeds){
-    window.instgrm.Embeds.process();
+  function mediaCardHTML(m){
+    return `<div class="voice-card media-card reveal">
+      ${archIcon(m.grad || ['#E3A9BE','#E3C68C'])}
+      <div class="voice-body">
+        <div class="voice-tag">${m.tag}</div>
+        <h3>${m.title}</h3>
+        <p>${m.teaser}</p>
+        <a class="voice-link" href="${m.url}" target="_blank" rel="noopener">${m.type==='Podcast' || m.type==='Reel' ? 'Watch / listen now' : 'Read article'} →</a>
+      </div>
+    </div>`;
   }
-}
-
-function mediaCardHTML(m){
-  const topSection = (m.type === 'Reel' && m.url && m.url !== '#')
-    ? reelEmbedHTML(m.url)
-    : archIcon(m.grad || ['#E3A9BE','#E3C68C']);
-  return `<div class="voice-card media-card reveal">
-    ${topSection}
-    <div class="voice-body">
-      <div class="voice-tag">${m.tag}</div>
-      <h3>${m.title}</h3>
-      <p>${m.teaser}</p>
-      <a class="voice-link" href="${m.url}" target="_blank" rel="noopener">${m.type==='Podcast' || m.type==='Reel' ? 'Watch / listen now' : 'Read article'} →</a>
-    </div>
-  </div>`;
-}
 
   function renderVoicesPage(){
     const tags = ['All', ...new Set(media.map(m=>m.tag))];
@@ -821,7 +797,6 @@ function mediaCardHTML(m){
     const list = activeTag==='All' ? media : media.filter(m=>m.tag===activeTag);
     grid.innerHTML = list.length ? list.map(mediaCardHTML).join('') : '<div class="media-empty">No pieces tagged this way yet — check back soon.</div>';
     initReveal();
-    processInstagramEmbeds();
   }
   function setFilter(t){ activeTag = t; renderVoicesPage(); }
 
@@ -920,6 +895,6 @@ function mediaCardHTML(m){
   initReveal();
   window.addEventListener('DOMContentLoaded', initReveal);
 </script>
-<script async src="//www.instagram.com/embed.js"></script>
+
 </body>
 </html>
