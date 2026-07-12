@@ -115,6 +115,11 @@
   .case-top{display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:10px;}
   .case-id{font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--ink-soft);}
   .case-alias{font-weight:700; font-size:1.02rem; margin-top:3px;}
+  .rename-btn{
+    font-size:0.78rem; color:var(--ink-soft); opacity:0.6; padding:2px 5px; border-radius:5px; vertical-align:middle;
+    transition:opacity .15s, background .15s;
+  }
+  .rename-btn:hover{opacity:1; background:var(--ivory-deep);}
   .badge-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
   .sev-badge{
     font-family:'IBM Plex Mono',monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em;
@@ -486,7 +491,7 @@
       const time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
       return `<div class="conv-item ${c.id===activeConvCaseId?'active':''}" onclick="selectConversation('${c.id}')">
         <div class="conv-item-top">
-          <span class="conv-ref">${c.case_ref}</span>
+          <span class="conv-ref">${(c.alias && c.alias!=='Anonymous conversation') ? c.alias : c.case_ref}</span>
           <span class="conv-sev ${c.severity}"></span>
         </div>
         <div class="conv-preview">${preview}</div>
@@ -508,7 +513,7 @@
     const statusLabel = {new:'New', triaged:'Triaged', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'}[c.status] || c.status;
     document.getElementById('convThread').innerHTML = `
       <div class="conv-thread-head">
-        <h3>${c.case_ref} <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${statusLabel}</span></h3>
+        <h3>${c.alias || 'Anonymous conversation'} <button class="rename-btn" onclick="openRenameModal('${c.id}')" title="Rename">✎</button> <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${c.case_ref} · ${statusLabel}</span></h3>
         <div style="display:flex; gap:8px;">
           ${(currentUser.role==='volunteer' || currentUser.role==='admin') ? `<button class="act-btn" onclick="openEscalateModal('${c.id}')">Escalate to Counsellor</button>` : ''}
           ${c.status!=='resolved' ? `<button class="act-btn primary" onclick="resolveConversation('${c.id}')">Mark Resolved</button>` : ''}
@@ -736,7 +741,7 @@
       <div class="case-top">
         <div>
           <div class="case-id mono">${c.id} · ${timeAgo(c.createdAt)}</div>
-          <div class="case-alias">${c.alias}</div>
+          <div class="case-alias">${c.alias} <button class="rename-btn" onclick="openRenameModal('${c.dbId}')" title="Rename">✎</button></div>
         </div>
         <div class="badge-row">
           <span class="sev-badge ${c.severity}">${sevLabel}</span>
@@ -855,6 +860,36 @@
   }
 
   // ================= COUNSELLOR UPDATES =================
+  function openRenameModal(dbId){
+    editingCaseId = dbId;
+    const fromCases = cases.find(x=>x.dbId===dbId);
+    const fromConvs = conversations.find(x=>x.id===dbId);
+    const currentAlias = fromCases ? fromCases.alias : (fromConvs ? fromConvs.alias : '');
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Rename this case</h2>
+      <p class="sub">Once you know her name, add it here — makes it much easier to find later.</p>
+      <div class="field"><label>Name or reference</label><input id="f_rename" value="${(currentAlias && currentAlias!=='Anonymous conversation') ? currentAlias : ''}" placeholder="e.g. Khadija, or Caller initials S.A."></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveRename()">Save</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+    setTimeout(()=>document.getElementById('f_rename').focus(), 50);
+  }
+  async function saveRename(){
+    const newAlias = document.getElementById('f_rename').value.trim();
+    if(!newAlias){ showToast('Please enter a name or reference'); return; }
+    try{
+      const { error } = await sb.from('cases').update({ alias: newAlias }).eq('id', editingCaseId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not rename: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    showToast('Renamed');
+    await Promise.all([loadCases(), loadConversations()]);
+  }
+
   function openUpdateModal(id){
     editingCaseId = id;
     document.getElementById('modalContent').innerHTML = `
