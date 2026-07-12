@@ -201,6 +201,7 @@
       <div class="side-link active" data-view="overview" onclick="setView('overview')"><span>Overview</span></div>
       <div class="side-link" data-view="pending" onclick="setView('pending')"><span>Pending Approvals</span><span class="side-count" id="count-pending">0</span></div>
       <div class="side-link" data-view="team" onclick="setView('team')"><span>Manage Team</span></div>
+      <div class="side-link" data-view="contributors" onclick="setView('contributors')"><span>Contributors</span><span class="side-count" id="count-contributors">0</span></div>
     </nav>
     <button class="logout-btn" onclick="logout()">← Sign out</button>
   </aside>
@@ -248,6 +249,16 @@
       <div class="filter-row" id="teamFilterRow"></div>
       <div class="person-list" id="teamList"><div class="empty-state">Loading…</div></div>
     </div>
+
+    <!-- ===== CONTRIBUTORS ===== -->
+    <div class="view" id="view-contributors">
+      <div class="main-head">
+        <h1>Contributors</h1>
+        <p>People who filled in the "Get Involved" form at /volunteer — reach out to them by email.</p>
+      </div>
+      <div class="filter-row" id="contribFilterRow"></div>
+      <div class="person-list" id="contribList"><div class="empty-state">Loading…</div></div>
+    </div>
   </main>
 </div>
 
@@ -256,14 +267,13 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
   // ============================================================
   // SUPABASE CONFIG — paste your project values here after setup
   // ============================================================
-  const SUPABASE_URL = window.SUPABASE_URL;
-  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+  const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const SPECIALTY_TAGS = ['Depression','Anxiety','Domestic Violence','Suicidal Thoughts','Marital Conflict','Grief','Motherhood Stress','Faith & Guilt','General Support'];
@@ -345,24 +355,31 @@
   }
 
   // ================= DATA =================
+  let allContributors = [];
+  let activeContribFilter = 'new';
+
   async function loadAll(){
     try{
-      const [{ data: cases, error: casesErr }, { data: profiles, error: profErr }] = await Promise.all([
+      const [{ data: cases, error: casesErr }, { data: profiles, error: profErr }, { data: contributors, error: contribErr }] = await Promise.all([
         sb.from('cases').select('case_ref, status, severity, tags, created_at, resolved_at'),
-        sb.from('profiles').select('*').order('created_at', { ascending:false })
+        sb.from('profiles').select('*').order('created_at', { ascending:false }),
+        sb.from('contribution_interest').select('*').order('created_at', { ascending:false })
       ]);
       if(casesErr) throw casesErr;
       if(profErr) throw profErr;
+      if(contribErr) throw contribErr;
       allCases = cases || [];
       allProfiles = profiles || [];
+      allContributors = contributors || [];
     }catch(e){
       console.error('Could not load admin data', e);
       showToast('Could not load data — check Supabase is configured correctly');
-      allCases = []; allProfiles = [];
+      allCases = []; allProfiles = []; allContributors = [];
     }
     renderOverview();
     renderPending();
     renderTeam();
+    renderContributors();
   }
 
   // ================= OVERVIEW =================
@@ -437,11 +454,48 @@
         </div>
         <div class="person-actions">
           <button class="p-btn primary" onclick="activateAs('${p.id}','volunteer')">Activate as Volunteer</button>
-          <button class="p-btn primary" onclick="activateAs('${p.id}','counsellor')">Activate as Counsellor</button>
           <button class="p-btn primary" onclick="activateAs('${p.id}','media_manager')">Activate as Media Manager</button>
         </div>
       </div>
     `).join('');
+  }
+
+  function renderContributors(){
+    document.getElementById('count-contributors').textContent = allContributors.filter(c=>!c.contacted).length;
+    document.getElementById('contribFilterRow').innerHTML = ['new','contacted','all'].map(f=>
+      `<button class="filter-chip ${f===activeContribFilter?'active':''}" onclick="setContribFilter('${f}')">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`
+    ).join('');
+    let list = allContributors;
+    if(activeContribFilter==='new') list = list.filter(c=>!c.contacted);
+    if(activeContribFilter==='contacted') list = list.filter(c=>c.contacted);
+    const container = document.getElementById('contribList');
+    if(!list.length){ container.innerHTML = '<div class="empty-state">Nothing here right now.</div>'; return; }
+    container.innerHTML = list.map(c=>`
+      <div class="person-card">
+        <div class="person-info">
+          <div class="pname">${c.full_name} <span class="role-tag" style="background:var(--gold-soft); color:var(--rose-deep-dark);">${c.profession}</span></div>
+          <div class="pmeta">${c.email}${c.message ? ' — '+c.message : ''}</div>
+        </div>
+        <div class="person-actions">
+          <a class="p-btn primary" href="mailto:${c.email}">Email</a>
+          ${!c.contacted ? `<button class="p-btn" onclick="markContacted('${c.id}')">Mark Contacted</button>` : `<span class="role-tag">Contacted</span>`}
+        </div>
+      </div>
+    `).join('');
+  }
+  function setContribFilter(f){ activeContribFilter = f; renderContributors(); }
+
+  async function markContacted(id){
+    try{
+      const { error } = await sb.from('contribution_interest').update({
+        contacted: true, contacted_by: currentUser.id, contacted_at: new Date().toISOString()
+      }).eq('id', id);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not update: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Marked as contacted');
+    await loadAll();
   }
 
   async function activateAs(profileId, role){

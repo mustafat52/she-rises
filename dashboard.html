@@ -101,6 +101,23 @@
 
   /* ---------- Case cards ---------- */
   .case-list{display:flex; flex-direction:column; gap:14px;}
+
+  .app-list{display:flex; flex-direction:column; gap:14px;}
+  .app-card{background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line); padding:22px 24px;}
+  .app-top{display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:10px; flex-wrap:wrap;}
+  .app-name{font-weight:700; font-size:1.1rem;}
+  .app-meta{font-size:0.85rem; color:var(--ink-soft); margin-top:3px;}
+  .app-status-badge{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; padding:4px 11px; border-radius:99px; font-weight:600;}
+  .app-status-badge.pending{background:var(--warn-soft); color:var(--warn);}
+  .app-status-badge.approved{background:var(--teal-soft); color:var(--teal);}
+  .app-status-badge.rejected{background:var(--danger-soft); color:var(--danger);}
+  .app-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; margin:14px 0; font-size:0.88rem;}
+  .app-grid dt{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; color:var(--gold); margin-bottom:2px;}
+  .app-grid dd{color:var(--ink);}
+  .app-statement{background:var(--ivory-deep); border-radius:10px; padding:14px 16px; font-size:0.9rem; color:var(--ink); margin:12px 0; line-height:1.6;}
+  .app-tags{display:flex; gap:7px; flex-wrap:wrap; margin:10px 0;}
+  .app-rejection-note{background:var(--danger-soft); color:var(--danger); border-radius:10px; padding:12px 14px; font-size:0.86rem; margin-top:10px;}
+  .app-actions{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
   .empty-state{
     text-align:center; padding:70px 20px; color:var(--ink-soft); background:var(--ivory-deep); border-radius:20px;
   }
@@ -294,6 +311,8 @@
         <div class="conv-empty">Select a conversation from the left to view it.</div>
       </div>
     </div>
+
+    <div class="app-list" id="appList" style="display:none;"></div>
   </main>
 </div>
 
@@ -302,11 +321,14 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-  const SUPABASE_URL = window.SUPABASE_URL;
-  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+  // ============================================================
+  // SUPABASE CONFIG — paste your project values here after setup
+  // Project Settings → API → Project URL / anon public key
+  // ============================================================
+  const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';       // e.g. https://xxxxxxxx.supabase.co
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';     // the public "anon" key, safe to expose client-side
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // ================= CONFIG =================
@@ -424,6 +446,9 @@
         {id:'resolved', label:'Resolved'},
       ];
     }
+    if(currentUser.role==='admin' || currentUser.role==='counsellor'){
+      links.push({id:'applications', label:'Counsellor Applications'});
+    }
     nav.innerHTML = links.map(l=>`<div class="side-link ${l.id===activeView?'active':''}" data-view="${l.id}" onclick="setView('${l.id}')">
       <span>${l.label}</span><span class="side-count" id="count-${l.id}">0</span>
     </div>`).join('');
@@ -431,21 +456,28 @@
 
   function setView(v){
     activeView = v; activeTagFilter='All'; buildSideNav();
+    document.getElementById('caseList').style.display = 'none';
+    document.getElementById('toolbar').style.display = 'none';
+    document.getElementById('convWrap').style.display = 'none';
+    document.getElementById('appList').style.display = 'none';
+    document.getElementById('btnNewCase').style.display = 'none';
+    if(convPollInterval){ clearInterval(convPollInterval); convPollInterval = null; }
+
     if(v === 'conversations'){
-      document.getElementById('caseList').style.display = 'none';
-      document.getElementById('toolbar').style.display = 'none';
       document.getElementById('convWrap').style.display = 'grid';
       document.getElementById('viewTitle').textContent = 'Conversations';
       document.getElementById('viewSub').textContent = 'Live chats with women who\'ve reached out — reply here.';
-      document.getElementById('btnNewCase').style.display = 'none';
       updateCounts();
       loadConversations();
+    } else if(v === 'applications'){
+      document.getElementById('appList').style.display = 'block';
+      document.getElementById('viewTitle').textContent = 'Counsellor Applications';
+      document.getElementById('viewSub').textContent = 'Review and approve people applying to volunteer as counsellors.';
+      loadApplications();
     } else {
       document.getElementById('caseList').style.display = 'flex';
       document.getElementById('toolbar').style.display = 'flex';
-      document.getElementById('convWrap').style.display = 'none';
       document.getElementById('btnNewCase').style.display = 'block';
-      if(convPollInterval) clearInterval(convPollInterval);
       render();
     }
   }
@@ -614,6 +646,130 @@
       if(error) throw error;
       showToast(away ? "You're marked away — no new conversations will be assigned to you" : "You're back — new conversations can be assigned to you");
     }catch(e){ console.error(e); showToast('Could not update status'); }
+  }
+
+  // ================= COUNSELLOR APPLICATIONS =================
+  let applications = [];
+  let activeAppFilter = 'pending';
+
+  async function loadApplications(){
+    try{
+      const { data, error } = await sb.from('counsellor_applications')
+        .select('*')
+        .order('created_at', { ascending:false });
+      if(error) throw error;
+      applications = data || [];
+    }catch(e){
+      console.error('Could not load applications', e);
+      document.getElementById('appList').innerHTML = '<div class="empty-state">Could not load applications.</div>';
+      return;
+    }
+    renderApplications();
+  }
+
+  function renderApplications(){
+    const pendingCount = applications.filter(a=>a.status==='pending').length;
+    const list = applications.filter(a => activeAppFilter==='all' || a.status===activeAppFilter);
+
+    const filterRow = `<div class="toolbar" style="margin-bottom:20px;">
+      ${['pending','approved','rejected','all'].map(f=>
+        `<button class="tchip ${f===activeAppFilter?'active':''}" onclick="setAppFilter('${f}')">${f.charAt(0).toUpperCase()+f.slice(1)}${f==='pending' && pendingCount ? ` (${pendingCount})` : ''}</button>`
+      ).join('')}
+    </div>`;
+
+    if(!list.length){
+      document.getElementById('appList').innerHTML = filterRow + '<div class="empty-state">Nothing here right now.</div>';
+      return;
+    }
+
+    document.getElementById('appList').innerHTML = filterRow + list.map(a => `
+      <div class="app-card">
+        <div class="app-top">
+          <div>
+            <div class="app-name">${a.full_name}</div>
+            <div class="app-meta">${a.email}${a.phone ? ' · '+a.phone : ''} · applied ${timeAgo(new Date(a.created_at).getTime())}</div>
+          </div>
+          <span class="app-status-badge ${a.status}">${a.status}</span>
+        </div>
+        <dl class="app-grid">
+          <div><dt>Qualification</dt><dd>${a.qualification || '—'}</dd></div>
+          <div><dt>Institution</dt><dd>${a.institution || '—'}</dd></div>
+          <div><dt>License number</dt><dd>${a.license_number || '—'}</dd></div>
+          <div><dt>Experience</dt><dd>${a.years_experience || '—'}</dd></div>
+          <div><dt>Current practice</dt><dd>${a.current_practice || '—'}</dd></div>
+          <div><dt>Location</dt><dd>${a.location || '—'}</dd></div>
+          <div><dt>Languages</dt><dd>${a.languages || '—'}</dd></div>
+          <div><dt>Weekly availability</dt><dd>${a.weekly_availability || '—'}</dd></div>
+        </dl>
+        <div class="app-tags">${(a.specialties||[]).map(t=>`<span class="tag-pill">${t}</span>`).join('')}</div>
+        ${a.motivation_statement ? `<div class="app-statement">${a.motivation_statement}</div>` : ''}
+        <div class="app-actions">
+          ${a.license_document_path ? `<button class="act-btn" onclick="viewApplicationDocument('${a.license_document_path}')">View Document</button>` : ''}
+          ${a.status==='pending' ? `
+            <button class="act-btn primary" onclick="approveApplication('${a.id}')">Approve as Counsellor</button>
+            <button class="act-btn" onclick="openRejectModal('${a.id}')">Reject</button>
+          ` : ''}
+        </div>
+        ${a.status==='rejected' && a.rejection_reason ? `<div class="app-rejection-note"><strong>Rejection reason given:</strong> ${a.rejection_reason}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function setAppFilter(f){ activeAppFilter = f; renderApplications(); }
+
+  async function viewApplicationDocument(path){
+    try{
+      const { data, error } = await sb.storage.from('counsellor-documents').createSignedUrl(path, 300); // 5 min link
+      if(error) throw error;
+      window.open(data.signedUrl, '_blank');
+    }catch(e){
+      console.error(e); showToast('Could not open document: ' + (e.message || 'unknown error'));
+    }
+  }
+
+  async function approveApplication(appId){
+    const app = applications.find(a=>a.id===appId);
+    if(!app) return;
+    try{
+      const { error: profErr } = await sb.from('profiles').update({ role:'counsellor', is_active:true }).eq('id', app.applicant_id);
+      if(profErr) throw profErr;
+      const { error: appErr } = await sb.from('counsellor_applications').update({
+        status:'approved', reviewed_by: currentUser.id, reviewed_at: new Date().toISOString()
+      }).eq('id', appId);
+      if(appErr) throw appErr;
+    }catch(e){
+      console.error(e); showToast('Could not approve: ' + (e.message || 'unknown error')); return;
+    }
+    showToast(`${app.full_name} approved as a counsellor`);
+    await loadApplications();
+  }
+
+  function openRejectModal(appId){
+    editingCaseId = appId;
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Reject application</h2>
+      <p class="sub">They'll see this reason and can revise and reapply.</p>
+      <div class="field"><label>Reason</label><textarea id="f_reject_reason" placeholder="Be specific and constructive — this helps them if they reapply"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveRejection()">Reject Application</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+  async function saveRejection(){
+    const reason = document.getElementById('f_reject_reason').value.trim();
+    if(!reason){ showToast('Please give a reason'); return; }
+    try{
+      const { error } = await sb.from('counsellor_applications').update({
+        status:'rejected', rejection_reason: reason, reviewed_by: currentUser.id, reviewed_at: new Date().toISOString()
+      }).eq('id', editingCaseId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not reject: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    showToast('Application rejected');
+    await loadApplications();
   }
 
   // row; counsellors only ever get rows where assigned_to = their own id.
