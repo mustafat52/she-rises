@@ -75,9 +75,10 @@
   }
   .side-link.active .side-count{background:var(--rose-soft); color:var(--rose-deep-dark);}
   .logout-btn{
-    color:#F4DEE4; font-size:0.85rem; padding:10px 14px; text-align:left; opacity:0.75; margin-top:10px;
+    color:var(--ivory); font-size:0.86rem; font-weight:700; padding:11px 14px; text-align:left; margin-top:10px;
+    border-radius:10px; background:rgba(255,255,255,0.08); transition:background .15s;
   }
-  .logout-btn:hover{opacity:1;}
+  .logout-btn:hover{background:rgba(255,255,255,0.18);}
 
   main{padding:34px 40px; overflow-y:auto; max-height:100vh;}
   .main-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:26px; gap:20px; flex-wrap:wrap;}
@@ -299,7 +300,6 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-  
   const SUPABASE_URL = window.SUPABASE_URL;
   const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -433,6 +433,7 @@
       document.getElementById('viewTitle').textContent = 'Conversations';
       document.getElementById('viewSub').textContent = 'Live chats with women who\'ve reached out — reply here.';
       document.getElementById('btnNewCase').style.display = 'none';
+      updateCounts();
       loadConversations();
     } else {
       document.getElementById('caseList').style.display = 'flex';
@@ -464,6 +465,8 @@
         const still = conversations.find(c=>c.id===activeConvCaseId);
         if(still) renderConversationThread(still);
       }
+      const badge = document.getElementById('count-conversations');
+      if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
     }catch(e){
       console.error('Could not load conversations', e);
       document.getElementById('convList').innerHTML = '<div class="loading-row">Could not load conversations</div>';
@@ -614,9 +617,21 @@
   async function loadCases(){
     try{
       const { data, error } = await sb.from('cases')
-        .select('*, assigned_profile:profiles!cases_assigned_to_fkey(full_name), case_updates(id, note, created_at, author_id)')
+        .select('*, case_updates(id, note, created_at, author_id)')
         .order('created_at', { ascending:false });
       if(error) throw error;
+
+      // Fetch assigned counsellor names separately — avoids depending on
+      // guessing Supabase's auto-generated foreign key constraint name,
+      // which silently breaks the whole query if it doesn't match exactly.
+      const assignedIds = [...new Set((data||[]).map(c=>c.assigned_to).filter(Boolean))];
+      let nameById = {};
+      if(assignedIds.length){
+        const { data: people, error: peopleErr } = await sb.from('profiles').select('id, full_name').in('id', assignedIds);
+        if(peopleErr) throw peopleErr;
+        (people||[]).forEach(p => { nameById[p.id] = p.full_name; });
+      }
+
       cases = (data || []).map(c => ({
         id: c.case_ref,
         dbId: c.id,
@@ -626,7 +641,7 @@
         severity: c.severity,
         status: c.status,
         assignedTo: c.assigned_to,
-        assignedToName: c.assigned_profile ? c.assigned_profile.full_name : null,
+        assignedToName: c.assigned_to ? (nameById[c.assigned_to] || null) : null,
         createdAt: new Date(c.created_at).getTime(),
         updates: (c.case_updates || [])
           .slice()
@@ -670,6 +685,7 @@
          resolved: cases.filter(c=>c.status==='resolved').length}
       : {mine: cases.filter(c=>c.status!=='resolved').length,
          resolved: cases.filter(c=>c.status==='resolved').length};
+    counters.conversations = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
     Object.entries(counters).forEach(([k,v])=>{
       const el = document.getElementById('count-'+k);
       if(el) el.textContent = v;

@@ -92,20 +92,23 @@
   .code-continue:hover{background:var(--rose-deep-dark);}
 
   /* ---------- Chat view ---------- */
-  .chat-view{display:none; flex-direction:column; height:calc(100vh - 70px);}
+  .chat-view{display:none; flex-direction:column; height:calc(100vh - 70px); padding-top:16px;}
   .chat-view.active{display:flex;}
+  .chat-card{
+    background:#fff; border:1px solid rgba(116,40,66,0.12); border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line);
+    box-shadow:var(--shadow); display:flex; flex-direction:column; flex:1; overflow:hidden;
+  }
   .chat-status{
-    background:#fff; border:1.5px solid var(--gold-line); border-radius:10px; padding:10px 14px; font-size:0.82rem; color:var(--ink-soft);
-    margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;
-    position:sticky; top:0; z-index:5; box-shadow:0 2px 8px -4px rgba(42,34,32,0.2);
+    background:var(--ivory-deep); border-bottom:1px solid rgba(116,40,66,0.1); padding:14px 18px; font-size:0.84rem; color:var(--ink-soft);
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; flex-shrink:0;
   }
   .chat-status strong{color:var(--rose-deep);}
-  .chat-messages{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding:6px 2px 16px;}
+  .chat-messages{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding:18px 18px;}
   .msg{max-width:78%; padding:12px 15px; border-radius:16px; font-size:0.93rem; line-height:1.5;}
   .msg-seeker{align-self:flex-end; background:var(--rose-deep); color:var(--ivory); border-bottom-right-radius:4px;}
-  .msg-staff{align-self:flex-start; background:#fff; border:1px solid rgba(116,40,66,0.12); border-bottom-left-radius:4px;}
+  .msg-staff{align-self:flex-start; background:var(--ivory-deep); border-bottom-left-radius:4px;}
   .msg-staff .msg-from{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; color:var(--teal); margin-bottom:4px; display:block;}
-  .chat-input-row{display:flex; gap:10px; padding-top:10px; border-top:1px solid rgba(116,40,66,0.12);}
+  .chat-input-row{display:flex; gap:10px; padding:14px 18px; border-top:1px solid rgba(116,40,66,0.1); flex-shrink:0; background:#fff;}
   .chat-input-row textarea{
     flex:1; padding:12px 14px; border-radius:12px; border:1.5px solid rgba(116,40,66,0.2); font-size:0.94rem;
     resize:none; max-height:100px; background:#fff;
@@ -179,11 +182,13 @@
 
   <!-- ===== CHAT VIEW ===== -->
   <div id="chatView" class="chat-view">
-    <div class="chat-status" id="chatStatus">Loading…</div>
-    <div class="chat-messages" id="chatMessages"></div>
-    <div class="chat-input-row">
-      <textarea id="chatInput" placeholder="Type a message…" rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
-      <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+    <div class="chat-card">
+      <div class="chat-status" id="chatStatus">Loading…</div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" placeholder="Type a message…" rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+        <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+      </div>
     </div>
   </div>
 
