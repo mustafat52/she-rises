@@ -118,6 +118,65 @@
   .app-tags{display:flex; gap:7px; flex-wrap:wrap; margin:10px 0;}
   .app-rejection-note{background:var(--danger-soft); color:var(--danger); border-radius:10px; padding:12px 14px; font-size:0.86rem; margin-top:10px;}
   .app-actions{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+
+  /* ---------- Admin: stats, breakdowns, team/contributor lists ---------- */
+  .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:30px;}
+  .stat-card{
+    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 18px 18px; border-top:3px solid var(--gold-line);
+    padding:20px 22px;
+  }
+  .stat-card .num{font-family:'Fraunces',serif; font-size:2rem; color:var(--rose-deep); line-height:1;}
+  .stat-card .lbl{font-size:0.82rem; color:var(--ink-soft); margin-top:6px;}
+  .stat-card.warn-card{border-top-color:var(--danger);}
+  .stat-card.warn-card .num{color:var(--danger);}
+
+  .panel{
+    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line);
+    padding:26px 28px; margin-bottom:24px;
+  }
+  .panel h2{font-size:1.1rem; margin-bottom:18px; font-family:'Fraunces',serif; color:var(--rose-deep); font-weight:500;}
+  .breakdown-row{display:flex; align-items:center; gap:14px; margin-bottom:12px;}
+  .breakdown-label{width:170px; font-size:0.88rem; color:var(--ink); flex-shrink:0;}
+  .breakdown-bar-track{flex:1; height:10px; background:var(--ivory-deep); border-radius:99px; overflow:hidden;}
+  .breakdown-bar{height:100%; background:var(--rose-deep); border-radius:99px;}
+  .breakdown-count{width:34px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:var(--ink-soft); flex-shrink:0;}
+
+  .person-list{display:flex; flex-direction:column; gap:12px;}
+  .person-card{
+    display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+    padding:16px 18px; border:1px solid rgba(116,40,66,0.1); border-radius:10px; background:#fff;
+  }
+  .person-info .pname{font-weight:700; font-size:0.96rem;}
+  .person-info .pmeta{font-size:0.8rem; color:var(--ink-soft); margin-top:2px;}
+  .role-tag{
+    font-family:'IBM Plex Mono',monospace; font-size:0.66rem; text-transform:uppercase; padding:3px 9px; border-radius:99px;
+    background:var(--teal-soft); color:var(--teal); font-weight:600; margin-left:8px;
+  }
+  .role-tag.inactive{background:var(--warn-soft); color:var(--warn);}
+  .person-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .p-btn{
+    font-size:0.8rem; font-weight:700; padding:8px 14px; border-radius:99px; background:var(--ivory-deep); color:var(--rose-deep);
+    transition:background .2s;
+  }
+  .p-btn:hover{background:var(--rose-soft);}
+  .p-btn.primary{background:var(--rose-deep); color:var(--ivory);}
+  .p-btn.primary:hover{background:var(--rose-deep-dark);}
+  .p-btn.danger{background:var(--danger-soft); color:var(--danger);}
+
+  .signup-link-box{
+    background:var(--ivory-deep); border-radius:12px; padding:16px 18px; display:flex; justify-content:space-between;
+    align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:24px;
+  }
+  .signup-link-box code{font-family:'IBM Plex Mono',monospace; font-size:0.86rem; color:var(--rose-deep);}
+  .toggle-row{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .toggle-row label{font-size:0.88rem; font-weight:600; color:var(--ink);}
+  @media(max-width:920px){ .stat-grid{grid-template-columns:1fr 1fr;} }
+  .filter-row{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;}
+  .filter-chip{
+    font-family:'IBM Plex Mono',monospace; font-size:0.74rem; padding:7px 14px; border-radius:99px;
+    border:1.5px solid rgba(116,40,66,0.2); color:var(--ink-soft); transition:all .2s;
+  }
+  .filter-chip.active{background:var(--rose-deep); border-color:var(--rose-deep); color:var(--ivory);}
   .empty-state{
     text-align:center; padding:70px 20px; color:var(--ink-soft); background:var(--ivory-deep); border-radius:20px;
   }
@@ -306,13 +365,37 @@
     <div class="case-list" id="caseList"><div class="loading-row">Loading cases…</div></div>
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
-      <div class="conv-list" id="convList"><div class="loading-row">Loading conversations…</div></div>
+      <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+        <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0;"></div>
+        <div class="conv-list" id="convList" style="flex:1;"><div class="loading-row">Loading conversations…</div></div>
+      </div>
       <div class="conv-thread" id="convThread">
         <div class="conv-empty">Select a conversation from the left to view it.</div>
       </div>
     </div>
 
     <div class="app-list" id="appList" style="display:none;"></div>
+
+    <div id="overviewView" style="display:none;">
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="panel"><h2>Cases by status</h2><div id="statusBreakdown"></div></div>
+      <div class="panel"><h2>Cases by topic</h2><div id="tagBreakdown"></div></div>
+      <div class="panel"><h2>Team roster</h2><div id="teamBreakdown"></div></div>
+    </div>
+
+    <div id="pendingView" style="display:none;">
+      <div class="person-list" id="pendingList"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <div id="teamView" style="display:none;">
+      <div class="filter-row" id="teamFilterRow" style="margin-bottom:18px;"></div>
+      <div class="person-list" id="teamList"><div class="empty-state">Loading…</div></div>
+    </div>
+
+    <div id="contributorsView" style="display:none;">
+      <div class="filter-row" id="contribFilterRow" style="margin-bottom:18px;"></div>
+      <div class="person-list" id="contribList"><div class="empty-state">Loading…</div></div>
+    </div>
   </main>
 </div>
 
@@ -327,6 +410,7 @@
   const SUPABASE_URL = window.SUPABASE_URL;
   const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
   // ================= CONFIG =================
   const ALL_TAGS = ['Depression','Anxiety','Domestic Violence','Suicidal Thoughts','Marital Conflict','Grief','Motherhood Stress','Faith & Guilt','General Support'];
   const CRISIS_TAGS = ['Suicidal Thoughts','Domestic Violence'];
@@ -337,6 +421,7 @@
   let activeView = 'inbox'; // inbox | mine | all | resolved
   let activeTagFilter = 'All';
   let editingCaseId = null;    // holds the case_ref (display id) of the case being edited
+  let editingProfileId = null; // holds the profile id being edited in admin role/listing modals
 
   // ================= AUTH =================
   function showLoginError(msg){
@@ -357,6 +442,10 @@
       if(profErr) throw profErr;
       if(!profile.is_active){ showLoginError('This account is not active — contact an admin.'); await sb.auth.signOut(); return; }
       currentUser = { id: profile.id, name: profile.full_name, role: profile.role };
+      if(currentUser.role === 'media_manager'){
+        window.location.href = '/msn-taj';
+        return;
+      }
     }catch(e){
       showLoginError(e.message || 'Login failed — check your email and password.');
       return;
@@ -365,9 +454,9 @@
     document.getElementById('app').classList.add('active');
     document.getElementById('app').style.display='grid';
     document.getElementById('sideName').textContent = currentUser.name;
-    document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : 'Admin';
+    document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : currentUser.role==='admin' ? 'Admin' : currentUser.role;
     setupAwayToggle(profile);
-    activeView = currentUser.role==='volunteer' ? 'inbox' : 'mine';
+    activeView = currentUser.role==='volunteer' ? 'inbox' : currentUser.role==='admin' ? 'overview' : 'mine';
     await loadCounsellorList();
     buildSideNav();
     loadCases();
@@ -392,13 +481,17 @@
         const { data: profile, error } = await sb.from('profiles').select('*').eq('id', data.session.user.id).single();
         if(error || !profile || !profile.is_active) return;
         currentUser = { id: profile.id, name: profile.full_name, role: profile.role };
+        if(currentUser.role === 'media_manager'){
+          window.location.href = '/msn-taj';
+          return;
+        }
         document.getElementById('loginScreen').style.display='none';
         document.getElementById('app').classList.add('active');
         document.getElementById('app').style.display='grid';
         document.getElementById('sideName').textContent = currentUser.name;
-        document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : 'Admin';
+        document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : currentUser.role==='admin' ? 'Admin' : currentUser.role;
         setupAwayToggle(profile);
-        activeView = currentUser.role==='volunteer' ? 'inbox' : 'mine';
+        activeView = currentUser.role==='volunteer' ? 'inbox' : currentUser.role==='admin' ? 'overview' : 'mine';
         await loadCounsellorList();
         buildSideNav();
         loadCases();
@@ -435,19 +528,33 @@
         {id:'all', label:'All Cases'},
         {id:'resolved', label:'Resolved'},
       ];
-    } else {
+    } else if(currentUser.role==='counsellor'){
       links = [
         {id:'conversations', label:'Conversations'},
         {id:'mine', label:'My Cases'},
         {id:'resolved', label:'Resolved'},
       ];
+    } else if(currentUser.role==='media_manager'){
+      links = []; // media managers only use Manage Voices, linked separately below
     }
     if(currentUser.role==='admin' || currentUser.role==='counsellor'){
       links.push({id:'applications', label:'Counsellor Applications'});
     }
+    if(currentUser.role==='admin'){
+      links.push(
+        {id:'overview', label:'Overview'},
+        {id:'pending', label:'Pending Approvals'},
+        {id:'team', label:'Manage Team'},
+        {id:'contributors', label:'Contributors'},
+      );
+    }
+    const noCountIds = ['overview','team'];
     nav.innerHTML = links.map(l=>`<div class="side-link ${l.id===activeView?'active':''}" data-view="${l.id}" onclick="setView('${l.id}')">
-      <span>${l.label}</span><span class="side-count" id="count-${l.id}">0</span>
+      <span>${l.label}</span>${noCountIds.includes(l.id) ? '' : `<span class="side-count" id="count-${l.id}">0</span>`}
     </div>`).join('');
+    if(currentUser.role==='media_manager' || currentUser.role==='admin'){
+      nav.innerHTML += `<a class="side-link" href="/msn-taj" style="display:block; text-decoration:none;"><span>Manage Voices ↗</span></a>`;
+    }
   }
 
   function setView(v){
@@ -456,6 +563,10 @@
     document.getElementById('toolbar').style.display = 'none';
     document.getElementById('convWrap').style.display = 'none';
     document.getElementById('appList').style.display = 'none';
+    document.getElementById('overviewView').style.display = 'none';
+    document.getElementById('pendingView').style.display = 'none';
+    document.getElementById('teamView').style.display = 'none';
+    document.getElementById('contributorsView').style.display = 'none';
     document.getElementById('btnNewCase').style.display = 'none';
     if(convPollInterval){ clearInterval(convPollInterval); convPollInterval = null; }
 
@@ -470,6 +581,26 @@
       document.getElementById('viewTitle').textContent = 'Counsellor Applications';
       document.getElementById('viewSub').textContent = 'Review and approve people applying to volunteer as counsellors.';
       loadApplications();
+    } else if(v === 'overview'){
+      document.getElementById('overviewView').style.display = 'block';
+      document.getElementById('viewTitle').textContent = 'Overview';
+      document.getElementById('viewSub').textContent = 'How the platform is being used, at a glance.';
+      loadAdminOverviewData();
+    } else if(v === 'pending'){
+      document.getElementById('pendingView').style.display = 'block';
+      document.getElementById('viewTitle').textContent = 'Pending Approvals';
+      document.getElementById('viewSub').textContent = 'People who signed up at /join and are waiting to be activated.';
+      loadAdminOverviewData();
+    } else if(v === 'team'){
+      document.getElementById('teamView').style.display = 'block';
+      document.getElementById('viewTitle').textContent = 'Manage Team';
+      document.getElementById('viewSub').textContent = 'Everyone currently active — volunteers, counsellors, media managers, and admins.';
+      loadAdminOverviewData();
+    } else if(v === 'contributors'){
+      document.getElementById('contributorsView').style.display = 'block';
+      document.getElementById('viewTitle').textContent = 'Contributors';
+      document.getElementById('viewSub').textContent = 'People who filled in the "Get Involved" form — reach out to them by email.';
+      loadContributorsData();
     } else {
       document.getElementById('caseList').style.display = 'flex';
       document.getElementById('toolbar').style.display = 'flex';
@@ -479,20 +610,32 @@
   }
 
   // ================= CONVERSATIONS (chat) =================
+  // Case lifecycle for a chat-sourced case:
+  //   new -> pending_counsellor (after consent) -> assigned (counsellor confirmed) -> resolved | closed
   let conversations = [];
   let activeConvCaseId = null;
   let convPollInterval = null;
+  let convFilter = 'all'; // all | mine | queue | unclaimed  (which chips apply depends on role)
+
+  const STATUS_LABELS = {new:'New', triaged:'Triaged', pending_counsellor:'Pending Counsellor', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'};
+  const TWENTY_FOUR_HOURS = 24*60*60*1000;
+
+  function isUnclaimed24h(c){
+    return c.status === 'pending_counsellor' && c.escalated_at && (Date.now() - new Date(c.escalated_at).getTime()) > TWENTY_FOUR_HOURS;
+  }
 
   async function loadConversations(){
     try{
+      // RLS already scopes this correctly per role: volunteers/admins see every
+      // chat case; counsellors see only the open pending_counsellor queue plus
+      // whatever's assigned to them — no client-side filtering needed.
       const { data, error } = await sb.from('cases')
-        .select('*, case_messages(id, sender_type, body, created_at)')
+        .select('*, case_messages(id, sender_type, body, created_at), counsellor_case_requests(id, counsellor_id, status, requested_at, profiles(full_name))')
         .eq('source', 'chat')
         .order('updated_at', { ascending:false });
       if(error) throw error;
-      conversations = (currentUser.role==='volunteer' || currentUser.role==='admin')
-        ? (data || [])
-        : (data || []).filter(c => c.assigned_to === currentUser.id);
+      conversations = data || [];
+      renderConvFilterChips();
       renderConversationList();
       if(activeConvCaseId){
         const still = conversations.find(c=>c.id===activeConvCaseId);
@@ -509,21 +652,51 @@
     }
   }
 
+  function renderConvFilterChips(){
+    const wrap = document.getElementById('convFilterChips');
+    if(!wrap) return;
+    let chips = [];
+    if(currentUser.role==='counsellor'){
+      chips = [
+        {id:'mine', label:'My Cases'},
+        {id:'queue', label:'Open Queue'},
+      ];
+      if(convFilter==='all') convFilter='mine';
+    } else if(currentUser.role==='volunteer' || currentUser.role==='admin'){
+      chips = [{id:'all', label:'All'}];
+      if(currentUser.role==='admin') chips.push({id:'unclaimed', label:'Needs Assignment (24h+)'});
+    }
+    if(chips.length <= 1){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+    wrap.style.display = 'flex';
+    wrap.innerHTML = chips.map(ch=>`<button type="button" class="filter-chip ${ch.id===convFilter?'active':''}" onclick="setConvFilter('${ch.id}')">${ch.label}</button>`).join('');
+  }
+
+  function setConvFilter(f){ convFilter = f; renderConvFilterChips(); renderConversationList(); }
+
+  function filteredConversations(){
+    if(convFilter==='mine') return conversations.filter(c=>c.assigned_counsellor===currentUser.id);
+    if(convFilter==='queue') return conversations.filter(c=>c.status==='pending_counsellor');
+    if(convFilter==='unclaimed') return conversations.filter(isUnclaimed24h);
+    return conversations;
+  }
+
   function renderConversationList(){
     const list = document.getElementById('convList');
-    if(!conversations.length){ list.innerHTML = '<div class="loading-row">No conversations yet.</div>'; return; }
-    list.innerHTML = conversations.map(c=>{
+    const items = filteredConversations();
+    if(!items.length){ list.innerHTML = '<div class="loading-row">Nothing here right now.</div>'; return; }
+    list.innerHTML = items.map(c=>{
       const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
       const last = msgs[msgs.length-1];
       const preview = last ? last.body : '(no messages yet)';
       const time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
+      const pendingReqCount = (c.counsellor_case_requests||[]).filter(r=>r.status==='pending').length;
       return `<div class="conv-item ${c.id===activeConvCaseId?'active':''}" onclick="selectConversation('${c.id}')">
         <div class="conv-item-top">
-          <span class="conv-ref">${(c.alias && c.alias!=='Anonymous conversation') ? c.alias : c.case_ref}</span>
+          <span class="conv-ref">${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || c.case_ref)}</span>
           <span class="conv-sev ${c.severity}"></span>
         </div>
         <div class="conv-preview">${preview}</div>
-        <div class="conv-time">${time}</div>
+        <div class="conv-time">${time}${pendingReqCount ? ` · ${pendingReqCount} request${pendingReqCount>1?'s':''} waiting` : ''}${isUnclaimed24h(c) ? ' · Unclaimed 24h+' : ''}</div>
       </div>`;
     }).join('');
   }
@@ -537,22 +710,30 @@
 
   function renderConversationThread(c){
     const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
-    const canReply = currentUser.role==='volunteer' || currentUser.role==='admin' || c.assigned_to===currentUser.id;
-    const statusLabel = {new:'New', triaged:'Triaged', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'}[c.status] || c.status;
+    const isOwnerSide = currentUser.role==='volunteer' || currentUser.role==='admin';
+    const isMyCounsellorCase = currentUser.role==='counsellor' && c.assigned_counsellor===currentUser.id;
+    const canReply = isOwnerSide || isMyCounsellorCase;
+    const statusLabel = STATUS_LABELS[c.status] || c.status;
+    const intakeLine = [c.seeker_name, c.seeker_location, c.its_number ? `ITS ${c.its_number}` : '', c.problem_category].filter(Boolean).join(' · ');
+
     document.getElementById('convThread').innerHTML = `
       <div class="conv-thread-head">
-        <h3>${c.alias || 'Anonymous conversation'} <button class="rename-btn" onclick="openRenameModal('${c.id}')" title="Rename">✎</button> <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${c.case_ref} · ${statusLabel}</span></h3>
-        <div style="display:flex; gap:8px;">
-          ${(currentUser.role==='volunteer' || currentUser.role==='admin') ? `<button class="act-btn" onclick="openEscalateModal('${c.id}')">Escalate to Counsellor</button>` : ''}
-          ${c.status!=='resolved' ? `<button class="act-btn primary" onclick="resolveConversation('${c.id}')">Mark Resolved</button>` : ''}
+        <h3>${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || 'Anonymous conversation')} <button class="rename-btn" onclick="openRenameModal('${c.id}')" title="Rename">✎</button> <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${c.case_ref} · ${statusLabel}</span></h3>
+        ${intakeLine ? `<div class="sub" style="margin-top:2px; font-size:0.82rem; color:var(--ink-soft);">${intakeLine}</div>` : ''}
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+          ${renderThreadActions(c, isOwnerSide, isMyCounsellorCase)}
         </div>
       </div>
+      ${renderRequestPanel(c, isOwnerSide)}
       <div class="conv-thread-messages" id="convMessages">
         ${msgs.map(m=>{
+          if(m.sender_type === 'system'){
+            return `<div class="conv-msg" style="align-self:center; background:var(--gold-soft); color:var(--rose-deep-dark); font-weight:600; border-radius:99px; text-align:center;">${escapeConvHtml(m.body)}</div>`;
+          }
           const isSeeker = m.sender_type === 'seeker';
           return `<div class="conv-msg ${isSeeker?'conv-msg-seeker':'conv-msg-staff'}">
             ${!isSeeker ? `<span class="conv-msg-from">${m.sender_type}</span>` : ''}
-            ${m.body}
+            ${escapeConvHtml(m.body)}
           </div>`;
         }).join('')}
       </div>
@@ -564,6 +745,60 @@
     `;
     const msgBox = document.getElementById('convMessages');
     if(msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+  }
+
+  function escapeConvHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderThreadActions(c, isOwnerSide, isMyCounsellorCase){
+    const btns = [];
+    if(isOwnerSide){
+      if(c.status === 'new' || c.status === 'triaged'){
+        btns.push(`<button class="act-btn" onclick="openEscalateModal('${c.id}')">Escalate to Counsellor</button>`);
+        btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','volunteer')">Close Case</button>`);
+      } else if(c.status === 'pending_counsellor'){
+        btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','volunteer')">Close Case</button>`);
+        if(currentUser.role==='admin' && isUnclaimed24h(c)){
+          btns.push(`<button class="act-btn primary" onclick="openAssignDirectModal('${c.id}')">Assign a Counsellor</button>`);
+        }
+      }
+    }
+    if(currentUser.role==='counsellor'){
+      if(c.status === 'pending_counsellor'){
+        const myReq = (c.counsellor_case_requests||[]).find(r=>r.counsellor_id===currentUser.id);
+        if(myReq && myReq.status==='pending'){
+          btns.push(`<span class="app-status-badge pending">Request sent — waiting for volunteer</span>`);
+        } else if(myReq && myReq.status==='declined'){
+          btns.push(`<span class="app-status-badge rejected">Request declined</span>`);
+        } else {
+          btns.push(`<button class="act-btn primary" onclick="requestCase('${c.id}')">Request This Case</button>`);
+        }
+      } else if(isMyCounsellorCase && c.status==='assigned'){
+        btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','counsellor')">Close Case</button>`);
+      }
+    }
+    return btns.join('');
+  }
+
+  // Only the volunteer/admin side sees and responds to the request queue on a case.
+  function renderRequestPanel(c, isOwnerSide){
+    if(!isOwnerSide || c.status !== 'pending_counsellor') return '';
+    const requests = (c.counsellor_case_requests||[]).filter(r=>r.status==='pending');
+    if(!requests.length) return `<div class="conv-empty" style="padding:10px 20px; font-size:0.85rem;">No counsellor has requested this case yet.</div>`;
+    return `<div style="padding:10px 20px; border-bottom:1px solid rgba(116,40,66,0.1); background:var(--ivory-deep);">
+      <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:var(--rose-deep); margin-bottom:8px;">Counsellor requests</div>
+      ${requests.map(r=>`
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px;">
+          <span style="font-size:0.9rem;">${(r.profiles && r.profiles.full_name) || 'A counsellor'}</span>
+          <span style="display:flex; gap:6px;">
+            <button class="act-btn primary" style="padding:6px 12px; font-size:0.8rem;" onclick="respondToRequest('${r.id}', true)">Approve</button>
+            <button class="act-btn" style="padding:6px 12px; font-size:0.8rem;" onclick="respondToRequest('${r.id}', false)">Decline</button>
+          </span>
+        </div>`).join('')}
+    </div>`;
   }
 
   async function sendConvReply(caseId){
@@ -584,31 +819,17 @@
     await loadConversations();
   }
 
-  async function resolveConversation(caseId){
-    try{
-      const { error } = await sb.from('cases').update({ status:'resolved', resolved_at: new Date().toISOString() }).eq('id', caseId);
-      if(error) throw error;
-    }catch(e){ console.error(e); showToast('Could not update'); return; }
-    showToast('Marked resolved');
-    await loadConversations();
-  }
-
+  // ---------- escalate: volunteer confirms consent, moves case into the queue ----------
   function openEscalateModal(caseId){
-    editingCaseId = caseId; // reuse existing modal machinery
-    const c = conversations.find(x=>x.id===caseId);
+    editingCaseId = caseId;
     document.getElementById('modalContent').innerHTML = `
-      <h2>Escalate ${c.case_ref} to a counsellor</h2>
-      <p class="sub">She'll keep talking in the same conversation — the counsellor takes over from here.</p>
-      <div class="field"><label>Severity</label><div class="sev-select-grid" id="f_sev">
-        <button type="button" class="sev-opt standard ${c.severity==='standard'?'selected':''}" data-sev="standard" onclick="selectSev(this)">Standard</button>
-        <button type="button" class="sev-opt high ${c.severity==='high'?'selected':''}" data-sev="high" onclick="selectSev(this)">High Priority</button>
-        <button type="button" class="sev-opt crisis ${c.severity==='crisis'?'selected':''}" data-sev="crisis" onclick="selectSev(this)">Crisis</button>
-      </div></div>
-      <div class="field"><label>Assign to counsellor</label>
-        <select id="f_assign">
-          <option value="">— Choose —</option>
-          ${counsellorList.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('')}
-        </select>
+      <h2>Escalate to a counsellor</h2>
+      <p class="sub">Only do this after she's agreed to be connected with a counsellor. Once confirmed, this case is listed for any counsellor to request.</p>
+      <div class="field" style="margin-top:10px;">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400;">
+          <input type="checkbox" id="f_consent" style="margin-top:3px;">
+          <span>I asked her, and she's given consent to be connected with a counsellor.</span>
+        </label>
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -618,20 +839,97 @@
   }
 
   async function saveEscalation(){
-    const sevEl = document.querySelector('#f_sev .sev-opt.selected');
-    const severity = sevEl ? sevEl.dataset.sev : 'standard';
-    const assignVal = document.getElementById('f_assign').value;
-    if(!assignVal){ showToast('Please choose a counsellor'); return; }
+    if(!document.getElementById('f_consent').checked){ showToast('Please confirm she has given consent'); return; }
     try{
-      const { error } = await sb.from('cases').update({
-        assigned_to: assignVal, severity, status: 'assigned'
-      }).eq('id', editingCaseId);
+      const { data, error } = await sb.rpc('escalate_case_to_counsellor_queue', { p_case_id: editingCaseId, p_actor_id: currentUser.id });
       if(error) throw error;
+      if(data === false){ showToast('Could not escalate — case may already be assigned or closed'); return; }
     }catch(e){
       console.error(e); showToast('Could not escalate: ' + (e.message || 'unknown error')); return;
     }
     closeModal();
-    showToast('Escalated to counsellor');
+    showToast('Listed for counsellors');
+    await loadConversations();
+  }
+
+  // ---------- counsellor requests a case from the open queue ----------
+  async function requestCase(caseId){
+    try{
+      const { error } = await sb.rpc('request_case', { p_case_id: caseId, p_counsellor_id: currentUser.id });
+      if(error) throw error;
+    }catch(e){ console.error(e); showToast('Could not send request: ' + (e.message || 'unknown error')); return; }
+    showToast('Request sent to the volunteer');
+    await loadConversations();
+  }
+
+  // ---------- volunteer/admin approves or declines a counsellor's request ----------
+  async function respondToRequest(requestId, approve){
+    try{
+      const fn = approve ? 'approve_counsellor_request' : 'decline_counsellor_request';
+      const { error } = await sb.rpc(fn, { p_request_id: requestId, p_responder_id: currentUser.id });
+      if(error) throw error;
+    }catch(e){ console.error(e); showToast('Could not respond: ' + (e.message || 'unknown error')); return; }
+    showToast(approve ? 'Counsellor assigned — she will connect with the seeker' : 'Request declined');
+    await loadConversations();
+  }
+
+  // ---------- admin direct assignment for cases unclaimed after 24h ----------
+  function openAssignDirectModal(caseId){
+    editingCaseId = caseId;
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Assign a counsellor directly</h2>
+      <p class="sub">This case has been open for more than 24 hours with no counsellor claiming it.</p>
+      <div class="field"><label>Counsellor</label>
+        <select id="f_direct_assign">
+          <option value="">— Choose —</option>
+          ${counsellorList.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveAssignDirect()">Assign</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  async function saveAssignDirect(){
+    const counsellorId = document.getElementById('f_direct_assign').value;
+    if(!counsellorId){ showToast('Please choose a counsellor'); return; }
+    try{
+      const { error } = await sb.rpc('assign_counsellor_directly', { p_case_id: editingCaseId, p_counsellor_id: counsellorId, p_admin_id: currentUser.id });
+      if(error) throw error;
+    }catch(e){ console.error(e); showToast('Could not assign: ' + (e.message || 'unknown error')); return; }
+    closeModal();
+    showToast('Counsellor assigned');
+    await loadConversations();
+  }
+
+  // ---------- close case: volunteer (not ready) or counsellor (counselling concluded) ----------
+  function openCloseModal(caseId, closerRole){
+    editingCaseId = caseId;
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Close this case</h2>
+      <p class="sub">${closerRole==='volunteer' ? "She's not ready to see a counsellor, or the conversation has concluded at this stage." : 'Counselling has concluded. This closes the case on our system — nothing further happens on your side here.'}</p>
+      <div class="field"><label>Reason (optional)</label>
+        <textarea id="f_close_reason" rows="3" placeholder="A short note for the record…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveCloseCase('${closerRole}')">Close Case</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  async function saveCloseCase(closerRole){
+    const reason = document.getElementById('f_close_reason').value.trim();
+    try{
+      const fn = closerRole === 'counsellor' ? 'close_case_as_counsellor' : 'close_case_as_volunteer';
+      const { data, error } = await sb.rpc(fn, { p_case_id: editingCaseId, p_actor_id: currentUser.id, p_reason: reason || null });
+      if(error) throw error;
+      if(data === false){ showToast('Could not close this case'); return; }
+    }catch(e){ console.error(e); showToast('Could not close: ' + (e.message || 'unknown error')); return; }
+    closeModal();
+    showToast('Case closed');
     await loadConversations();
   }
 
@@ -642,6 +940,288 @@
       if(error) throw error;
       showToast(away ? "You're marked away — no new conversations will be assigned to you" : "You're back — new conversations can be assigned to you");
     }catch(e){ console.error(e); showToast('Could not update status'); }
+  }
+
+  // ================= ADMIN: OVERVIEW / PENDING / TEAM =================
+  let allProfiles = [];
+  let activeTeamFilter = 'All';
+  const SPECIALTY_TAGS = ALL_TAGS.filter(t => t !== 'General Support').concat(['General Support']); // same taxonomy, reused
+
+  async function loadAdminOverviewData(){
+    try{
+      const { data, error } = await sb.from('profiles').select('*').order('created_at', { ascending:false });
+      if(error) throw error;
+      allProfiles = data || [];
+    }catch(e){
+      console.error('Could not load team data', e);
+      showToast('Could not load team data');
+      allProfiles = [];
+    }
+    renderOverview();
+    renderPending();
+    renderTeam();
+  }
+
+  function renderOverview(){
+    const total = cases.length;
+    const open = cases.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+    const crisis = cases.filter(c=>c.severity==='crisis' && c.status!=='resolved').length;
+    const now = Date.now();
+    const resolvedThisMonth = cases.filter(c=> c.status==='resolved' && c.resolvedAt && (now - c.resolvedAt) < 30*24*3600*1000).length;
+
+    document.getElementById('statGrid').innerHTML = `
+      <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total women who've reached out</div></div>
+      <div class="stat-card"><div class="num">${open}</div><div class="lbl">Currently open cases</div></div>
+      <div class="stat-card warn-card"><div class="num">${crisis}</div><div class="lbl">Open crisis-tagged cases</div></div>
+      <div class="stat-card"><div class="num">${resolvedThisMonth}</div><div class="lbl">Resolved in last 30 days</div></div>
+    `;
+
+    const statusLabels = {new:'New · Untriaged', triaged:'Triaged', assigned:'Assigned', in_progress:'In Progress', resolved:'Resolved', closed:'Closed'};
+    const statusCounts = {};
+    cases.forEach(c=>{ statusCounts[c.status] = (statusCounts[c.status]||0)+1; });
+    document.getElementById('statusBreakdown').innerHTML = renderBreakdown(statusCounts, statusLabels, total);
+
+    const tagCounts = {};
+    cases.forEach(c=>{ (c.tags||[]).forEach(t=>{ tagCounts[t] = (tagCounts[t]||0)+1; }); });
+    const tagTotal = Object.values(tagCounts).reduce((a,b)=>a+b,0) || 1;
+    document.getElementById('tagBreakdown').innerHTML = Object.keys(tagCounts).length
+      ? renderBreakdown(tagCounts, null, tagTotal)
+      : '<p style="color:var(--ink-soft); font-size:0.88rem;">No tagged cases yet.</p>';
+
+    const active = allProfiles.filter(p=>p.is_active);
+    const roleCounts = {};
+    active.forEach(p=>{ roleCounts[p.role] = (roleCounts[p.role]||0)+1; });
+    const roleLabels = {volunteer:'Volunteers', counsellor:'Counsellors', media_manager:'Media Managers', admin:'Admins'};
+    document.getElementById('teamBreakdown').innerHTML = `
+      <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        ${Object.entries(roleLabels).map(([k,label])=>`
+          <div><div class="num" style="font-family:'Fraunces',serif; font-size:1.6rem; color:var(--rose-deep);">${roleCounts[k]||0}</div>
+          <div style="font-size:0.82rem; color:var(--ink-soft);">${label}</div></div>
+        `).join('')}
+      </div>`;
+  }
+
+  function renderBreakdown(counts, labelMap, total){
+    const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    if(!entries.length) return '<p style="color:var(--ink-soft); font-size:0.88rem;">No data yet.</p>';
+    return entries.map(([key,count])=>{
+      const label = labelMap ? (labelMap[key]||key) : key;
+      const pct = total ? Math.round((count/total)*100) : 0;
+      return `<div class="breakdown-row">
+        <div class="breakdown-label">${label}</div>
+        <div class="breakdown-bar-track"><div class="breakdown-bar" style="width:${pct}%"></div></div>
+        <div class="breakdown-count">${count}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderPending(){
+    const pending = allProfiles.filter(p=>!p.is_active);
+    const badge = document.getElementById('count-pending');
+    if(badge) badge.textContent = pending.length;
+    const list = document.getElementById('pendingList');
+    if(!list) return;
+    if(!pending.length){ list.innerHTML = '<div class="empty-state">No one is waiting for approval right now.</div>'; return; }
+    list.innerHTML = pending.map(p=>`
+      <div class="person-card">
+        <div class="person-info">
+          <div class="pname">${p.full_name}</div>
+          <div class="pmeta">${p.email || ''}</div>
+        </div>
+        <div class="person-actions">
+          <button class="p-btn primary" onclick="activateAsRole('${p.id}','volunteer')">Activate as Volunteer</button>
+          <button class="p-btn primary" onclick="activateAsRole('${p.id}','media_manager')">Activate as Media Manager</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function activateAsRole(profileId, role){
+    try{
+      const { error } = await sb.from('profiles').update({ role, is_active: true }).eq('id', profileId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not activate: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Activated');
+    await loadAdminOverviewData();
+  }
+
+  function renderTeam(){
+    const roles = ['All','volunteer','counsellor','media_manager','admin'];
+    const roleLabels = {All:'All', volunteer:'Volunteers', counsellor:'Counsellors', media_manager:'Media Managers', admin:'Admins'};
+    const filterRow = document.getElementById('teamFilterRow');
+    if(filterRow) filterRow.innerHTML = roles.map(r=>
+      `<button class="filter-chip ${r===activeTeamFilter?'active':''}" onclick="setTeamFilter('${r}')">${roleLabels[r]}</button>`
+    ).join('');
+
+    let list = allProfiles.filter(p=>p.is_active);
+    if(activeTeamFilter!=='All') list = list.filter(p=>p.role===activeTeamFilter);
+    const container = document.getElementById('teamList');
+    if(!container) return;
+    if(!list.length){ container.innerHTML = '<div class="empty-state">No one here yet.</div>'; return; }
+    const roleLabelMap = {volunteer:'Volunteer', counsellor:'Counsellor', media_manager:'Media Manager', admin:'Admin'};
+    container.innerHTML = list.map(p=>`
+      <div class="person-card">
+        <div class="person-info">
+          <div class="pname">${p.full_name} <span class="role-tag">${roleLabelMap[p.role]}</span>${p.role==='counsellor' && p.is_public_listed ? '<span class="role-tag" style="background:var(--gold-soft); color:var(--rose-deep-dark);">Publicly listed</span>' : ''}</div>
+          <div class="pmeta">${p.email || ''}</div>
+        </div>
+        <div class="person-actions">
+          ${p.role==='counsellor' ? `<button class="p-btn" onclick="openListingModal('${p.id}')">Edit Public Listing</button>` : ''}
+          <button class="p-btn" onclick="openRoleModal('${p.id}')">Change Role</button>
+          <button class="p-btn danger" onclick="deactivateProfile('${p.id}')">Deactivate</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  function setTeamFilter(r){ activeTeamFilter = r; renderTeam(); }
+
+  async function deactivateProfile(profileId){
+    try{
+      const { error } = await sb.from('profiles').update({ is_active:false }).eq('id', profileId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not deactivate: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Deactivated — they can no longer sign in to any internal tool');
+    await loadAdminOverviewData();
+  }
+
+  function openRoleModal(profileId){
+    editingProfileId = profileId;
+    const p = allProfiles.find(x=>x.id===profileId);
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Change role</h2>
+      <p class="sub">${p.full_name}</p>
+      <div class="field"><label>Role</label>
+        <select id="f_role">
+          <option value="volunteer" ${p.role==='volunteer'?'selected':''}>Volunteer</option>
+          <option value="counsellor" ${p.role==='counsellor'?'selected':''}>Counsellor</option>
+          <option value="media_manager" ${p.role==='media_manager'?'selected':''}>Media Manager</option>
+          <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveRole()">Save</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+  async function saveRole(){
+    const role = document.getElementById('f_role').value;
+    try{
+      const { error } = await sb.from('profiles').update({ role }).eq('id', editingProfileId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not save: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    showToast('Role updated');
+    await loadAdminOverviewData();
+  }
+
+  function openListingModal(profileId){
+    editingProfileId = profileId;
+    const p = allProfiles.find(x=>x.id===profileId);
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Public listing — ${p.full_name}</h2>
+      <p class="sub">Controls what shows on the public "Find a Counsellor" page.</p>
+      <div class="toggle-row">
+        <input type="checkbox" id="f_listed" ${p.is_public_listed?'checked':''} style="width:18px; height:18px;">
+        <label for="f_listed">Show on the public Find a Counsellor page</label>
+      </div>
+      <div class="field"><label>Credential</label><input id="f_cred" value="${p.credential||''}" placeholder="e.g. Clinical Psychologist"></div>
+      <div class="field"><label>Location</label><input id="f_loc" value="${p.location||''}" placeholder="e.g. Mumbai or Online only"></div>
+      <div class="field"><label>Languages</label><input id="f_lang" value="${p.languages||''}" placeholder="e.g. English, Gujarati"></div>
+      <div class="field"><label>Specialties</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="f_specialties">
+          ${SPECIALTY_TAGS.map(t=>`<button type="button" class="filter-chip ${(p.specialties||[]).includes(t)?'active':''}" data-tag="${t}" onclick="this.classList.toggle('active')">${t}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field"><label>Public bio</label><textarea id="f_bio" placeholder="A short, warm description of who they help">${p.public_bio||''}</textarea></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveListing()">Save</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+  async function saveListing(){
+    const is_public_listed = document.getElementById('f_listed').checked;
+    const credential = document.getElementById('f_cred').value.trim();
+    const location = document.getElementById('f_loc').value.trim();
+    const languages = document.getElementById('f_lang').value.trim();
+    const public_bio = document.getElementById('f_bio').value.trim();
+    const specialties = Array.from(document.querySelectorAll('#f_specialties .filter-chip.active')).map(el=>el.dataset.tag);
+    try{
+      const { error } = await sb.from('profiles').update({
+        is_public_listed, credential, location, languages, public_bio, specialties
+      }).eq('id', editingProfileId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not save: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    showToast('Listing saved');
+    await loadAdminOverviewData();
+  }
+
+  // ================= ADMIN: CONTRIBUTORS =================
+  let allContributors = [];
+  let activeContribFilter2 = 'new';
+
+  async function loadContributorsData(){
+    try{
+      const { data, error } = await sb.from('contribution_interest').select('*').order('created_at', { ascending:false });
+      if(error) throw error;
+      allContributors = data || [];
+    }catch(e){
+      console.error('Could not load contributors', e);
+      showToast('Could not load contributors');
+      allContributors = [];
+    }
+    renderContributorsAdmin();
+  }
+
+  function renderContributorsAdmin(){
+    const badge = document.getElementById('count-contributors');
+    if(badge) badge.textContent = allContributors.filter(c=>!c.contacted).length;
+    const filterRow = document.getElementById('contribFilterRow');
+    if(filterRow) filterRow.innerHTML = ['new','contacted','all'].map(f=>
+      `<button class="filter-chip ${f===activeContribFilter2?'active':''}" onclick="setContribFilter2('${f}')">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`
+    ).join('');
+    let list = allContributors;
+    if(activeContribFilter2==='new') list = list.filter(c=>!c.contacted);
+    if(activeContribFilter2==='contacted') list = list.filter(c=>c.contacted);
+    const container = document.getElementById('contribList');
+    if(!container) return;
+    if(!list.length){ container.innerHTML = '<div class="empty-state">Nothing here right now.</div>'; return; }
+    container.innerHTML = list.map(c=>`
+      <div class="person-card">
+        <div class="person-info">
+          <div class="pname">${c.full_name} <span class="role-tag" style="background:var(--gold-soft); color:var(--rose-deep-dark);">${c.profession}</span></div>
+          <div class="pmeta">${c.email}${c.message ? ' — '+c.message : ''}</div>
+        </div>
+        <div class="person-actions">
+          <a class="p-btn primary" href="mailto:${c.email}">Email</a>
+          ${!c.contacted ? `<button class="p-btn" onclick="markContacted('${c.id}')">Mark Contacted</button>` : `<span class="role-tag">Contacted</span>`}
+        </div>
+      </div>
+    `).join('');
+  }
+  function setContribFilter2(f){ activeContribFilter2 = f; renderContributorsAdmin(); }
+
+  async function markContacted(id){
+    try{
+      const { error } = await sb.from('contribution_interest').update({
+        contacted: true, contacted_by: currentUser.id, contacted_at: new Date().toISOString()
+      }).eq('id', id);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not update: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Marked as contacted');
+    await loadContributorsData();
   }
 
   // ================= COUNSELLOR APPLICATIONS =================
@@ -800,6 +1380,7 @@
         assignedTo: c.assigned_to,
         assignedToName: c.assigned_to ? (nameById[c.assigned_to] || null) : null,
         createdAt: new Date(c.created_at).getTime(),
+        resolvedAt: c.resolved_at ? new Date(c.resolved_at).getTime() : null,
         updates: (c.case_updates || [])
           .slice()
           .sort((a,b)=> new Date(a.created_at) - new Date(b.created_at))

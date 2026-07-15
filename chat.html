@@ -78,6 +78,13 @@
   .back-link{display:inline-block; margin-bottom:16px; color:var(--ink-soft); font-size:0.86rem; font-weight:600;}
   .back-link:hover{color:var(--rose-deep);}
 
+  .intake-form{display:grid; gap:14px;}
+  .intake-row label{display:block; font-size:0.8rem; font-weight:600; color:var(--rose-deep); margin-bottom:5px;}
+  .intake-row input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
+    font-size:0.95rem; background:#fff;
+  }
+
   /* ---------- Access code reveal ---------- */
   .code-reveal{display:none; text-align:center; background:#fff; border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line); padding:32px 26px; margin-bottom:20px;}
   .code-reveal.active{display:block;}
@@ -108,6 +115,10 @@
   .msg-seeker{align-self:flex-end; background:var(--rose-deep); color:var(--ivory); border-bottom-right-radius:4px;}
   .msg-staff{align-self:flex-start; background:var(--ivory-deep); border-bottom-left-radius:4px;}
   .msg-staff .msg-from{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; color:var(--teal); margin-bottom:4px; display:block;}
+  .msg-system{
+    align-self:center; background:var(--gold-soft); color:var(--rose-deep-dark); text-align:center;
+    font-size:0.82rem; font-weight:600; border-radius:99px; padding:9px 18px; max-width:90%;
+  }
   .chat-input-row{display:flex; gap:10px; padding:14px 18px; border-top:1px solid rgba(116,40,66,0.1); flex-shrink:0; background:#fff;}
   .chat-input-row textarea{
     flex:1; padding:12px 14px; border-radius:12px; border:1.5px solid rgba(116,40,66,0.2); font-size:0.94rem;
@@ -165,8 +176,27 @@
   <!-- ===== NEW CONVERSATION STARTER ===== -->
   <div id="starter" class="starter">
     <a class="back-link" href="#" onclick="showLanding();return false;">← Back</a>
-    <h2>Tell us what's going on</h2>
-    <p class="sub">Write whatever feels right — a sentence or a few paragraphs. A volunteer will read this and respond as soon as they can.</p>
+    <h2>A little about you, first</h2>
+    <p class="sub">This stays private between you and whoever you're connected with — it just helps a volunteer understand your situation before you start talking.</p>
+    <div class="intake-form">
+      <div class="intake-row">
+        <label for="intakeName">Name</label>
+        <input type="text" id="intakeName" placeholder="Your name">
+      </div>
+      <div class="intake-row">
+        <label for="intakeLocation">Location</label>
+        <input type="text" id="intakeLocation" placeholder="City, or 'online only'">
+      </div>
+      <div class="intake-row">
+        <label for="intakeIts">ITS number</label>
+        <input type="text" id="intakeIts" placeholder="Your ITS number">
+      </div>
+      <div class="intake-row">
+        <label for="intakeProblem">Problem, in one word</label>
+        <input type="text" id="intakeProblem" placeholder="e.g. Anxiety, Marriage, Grief">
+      </div>
+    </div>
+    <p class="sub" style="margin-top:20px; margin-bottom:10px;">Now, tell us what's going on. Write whatever feels right — a sentence or a few paragraphs. A volunteer will read this and respond as soon as they can.</p>
     <textarea id="firstMessageInput" placeholder="Start typing here…"></textarea>
     <button class="starter-send" onclick="startConversation()">Send</button>
   </div>
@@ -216,10 +246,18 @@
   }
 
   async function startConversation(){
+    const name = document.getElementById('intakeName').value.trim();
+    const location = document.getElementById('intakeLocation').value.trim();
+    const its = document.getElementById('intakeIts').value.trim();
+    const problem = document.getElementById('intakeProblem').value.trim();
     const text = document.getElementById('firstMessageInput').value.trim();
+    if(!name || !location || !its || !problem){ showToast('Please fill in all the fields above'); return; }
     if(!text){ showToast('Please write something first'); return; }
     try{
-      const { data, error } = await sb.rpc('start_conversation', { first_message: text });
+      const { data, error } = await sb.rpc('start_conversation', {
+        p_name: name, p_location: location, p_its_number: its,
+        p_problem_category: problem, p_first_message: text
+      });
       if(error) throw error;
       const row = data[0];
       currentAccessCode = row.out_access_code;
@@ -270,13 +308,16 @@
     if(signature === lastRenderSignature) return; // nothing actually changed — skip re-render entirely
     lastRenderSignature = signature;
 
-    const statusLabel = {new:'Waiting to be reviewed', triaged:'Being reviewed', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'}[first.status] || first.status;
+    const statusLabel = {new:'Waiting to be reviewed', triaged:'Being reviewed', pending_counsellor:'Finding you a counsellor', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'}[first.status] || first.status;
     document.getElementById('chatStatus').innerHTML =
       `<span>${first.assigned_name ? `Speaking with <strong>${first.assigned_name}</strong>` : 'Waiting for a volunteer'}</span><span>${statusLabel}</span>`;
 
     const container = document.getElementById('chatMessages');
     const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
     container.innerHTML = rows.map(m => {
+      if(m.sender_type === 'system'){
+        return `<div class="msg msg-system">${escapeHtml(m.body)}</div>`;
+      }
       const isSeeker = m.sender_type === 'seeker';
       return `<div class="msg ${isSeeker ? 'msg-seeker' : 'msg-staff'}">
         ${!isSeeker ? `<span class="msg-from">${m.sender_type === 'counsellor' ? 'Counsellor' : 'Volunteer'}</span>` : ''}
