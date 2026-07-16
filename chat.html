@@ -82,8 +82,14 @@
   .intake-row label{display:block; font-size:0.8rem; font-weight:600; color:var(--rose-deep); margin-bottom:5px;}
   .intake-row input{
     width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
-    font-size:0.95rem; background:#fff;
+    font-size:0.95rem; background:#fff; font-family:inherit; color:inherit;
   }
+  .problem-pill-grid{display:flex; gap:8px; flex-wrap:wrap;}
+  .problem-pill{
+    padding:9px 15px; border-radius:99px; border:1.5px solid rgba(116,40,66,0.25);
+    background:#fff; font-size:0.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .problem-pill.selected{background:var(--rose-deep); color:#fff; border-color:var(--rose-deep);}
 
   /* ---------- Access code reveal ---------- */
   .code-reveal{display:none; text-align:center; background:#fff; border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line); padding:32px 26px; margin-bottom:20px;}
@@ -192,8 +198,18 @@
         <input type="text" id="intakeIts" placeholder="Your ITS number">
       </div>
       <div class="intake-row">
-        <label for="intakeProblem">Problem, in one word</label>
-        <input type="text" id="intakeProblem" placeholder="e.g. Anxiety, Marriage, Grief">
+        <label>Problem <span style="font-weight:400; color:var(--ink-soft);">(tap all that fit)</span></label>
+        <div class="problem-pill-grid" id="intakeProblem">
+          <button type="button" class="problem-pill" data-tag="Depression" onclick="toggleProblemPill(this)">Depression</button>
+          <button type="button" class="problem-pill" data-tag="Anxiety" onclick="toggleProblemPill(this)">Anxiety</button>
+          <button type="button" class="problem-pill" data-tag="Domestic Violence" onclick="toggleProblemPill(this)">Domestic Violence</button>
+          <button type="button" class="problem-pill" data-tag="Suicidal Thoughts" onclick="toggleProblemPill(this)">Suicidal Thoughts</button>
+          <button type="button" class="problem-pill" data-tag="Marital Conflict" onclick="toggleProblemPill(this)">Marital Conflict</button>
+          <button type="button" class="problem-pill" data-tag="Grief" onclick="toggleProblemPill(this)">Grief</button>
+          <button type="button" class="problem-pill" data-tag="Motherhood Stress" onclick="toggleProblemPill(this)">Motherhood Stress</button>
+          <button type="button" class="problem-pill" data-tag="Faith & Guilt" onclick="toggleProblemPill(this)">Faith & Guilt</button>
+          <button type="button" class="problem-pill" data-tag="General Support" onclick="toggleProblemPill(this)">General Support</button>
+        </div>
       </div>
     </div>
     <p class="sub" style="margin-top:20px; margin-bottom:10px;">Now, tell us what's going on. Write whatever feels right — a sentence or a few paragraphs. A volunteer will read this and respond as soon as they can.</p>
@@ -245,11 +261,15 @@
     document.getElementById('firstMessageInput').focus();
   }
 
+  function toggleProblemPill(el){
+    el.classList.toggle('selected');
+  }
+
   async function startConversation(){
     const name = document.getElementById('intakeName').value.trim();
     const location = document.getElementById('intakeLocation').value.trim();
     const its = document.getElementById('intakeIts').value.trim();
-    const problem = document.getElementById('intakeProblem').value.trim();
+    const problem = Array.from(document.querySelectorAll('.problem-pill.selected')).map(el=>el.dataset.tag).join(', ');
     const text = document.getElementById('firstMessageInput').value.trim();
     if(!name || !location || !its || !problem){ showToast('Please fill in all the fields above'); return; }
     if(!text){ showToast('Please write something first'); return; }
