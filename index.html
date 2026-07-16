@@ -181,17 +181,17 @@
   /* steps */
   .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:26px; counter-reset:step;}
   .step{position:relative; padding-top:8px;}
+  .step-num-row{display:flex; align-items:center; gap:14px;}
   .step-num{
     font-family:'Fraunces', serif; font-size:2.6rem; color:var(--gold-soft); font-weight:600; line-height:1;
-    -webkit-text-stroke:1.5px var(--gold);
+    -webkit-text-stroke:1.5px var(--gold); flex-shrink:0;
+  }
+  .step:not(:last-child) .step-num-row::after{
+    content:''; flex:1; border-top:1.5px dashed var(--gold-soft); display:block; margin-left:4px;
   }
   .step h3{margin:14px 0 8px; font-size:1.1rem;}
   .step p{color:var(--ink-soft); font-size:0.95rem;}
-  .step:not(:last-child)::after{
-    content:''; position:absolute; top:26px; left:calc(100% - 4px); width:calc(100% - 20px);
-    border-top:1.5px dashed var(--gold-soft); display:block;
-  }
-  @media(max-width:860px){.step::after{display:none;}}
+  @media(max-width:860px){.step-num-row::after{display:none;}}
 
   /* voices preview cards */
   .voice-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px;}
@@ -230,6 +230,24 @@
   .resource-strip p{color:#DCEAE5; font-size:0.92rem; max-width:52ch;}
   .resource-strip .btn-primary{background:var(--ivory); color:var(--teal); box-shadow:none;}
   .resource-strip .btn-primary:hover{background:#fff;}
+
+  .contribute-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:32px; flex-wrap:wrap;
+    background:linear-gradient(120deg, var(--rose-deep), var(--rose-deep-dark));
+    color:var(--ivory); border-radius:14px; padding:48px 50px; position:relative; overflow:hidden;
+  }
+  .contribute-banner::before{
+    content:''; position:absolute; inset:0; opacity:0.08; pointer-events:none;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FBF3EC" stroke-width="1"/></svg>');
+    background-size:60px 60px;
+  }
+  .contribute-banner-text{position:relative; max-width:52ch;}
+  .contribute-banner .eyebrow{color:var(--gold-soft);}
+  .contribute-banner h2{font-family:'Fraunces',serif; font-size:clamp(1.7rem, 3vw, 2.4rem); line-height:1.15; margin-bottom:12px; color:var(--ivory);}
+  .contribute-banner p{color:var(--rose-soft); font-size:1rem;}
+  .contribute-banner .btn-primary{position:relative; background:var(--gold); color:var(--rose-deep-dark); box-shadow:none; font-size:1.02rem; padding:16px 30px; flex-shrink:0;}
+  .contribute-banner .btn-primary:hover{background:var(--gold-soft);}
+  @media(max-width:700px){ .contribute-banner{padding:34px 26px; text-align:center; justify-content:center;} .contribute-banner-text{max-width:100%;} }
 
   footer{border-top:1px solid rgba(116,40,66,0.12); margin-top:60px; padding:40px 0 50px;}
   .footer-wrap{max-width:1180px; margin:0 auto; padding:0 28px; display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; align-items:flex-start; box-sizing:border-box;}
@@ -422,7 +440,6 @@
           <a class="btn-primary" href="/chat">Reach Out Now →</a>
           <a class="btn-secondary" href="#" onclick="goPage('voices');return false;">Listen First</a>
         </div>
-        <a class="reveal" href="/volunteer" style="margin-top:16px; display:inline-block; font-size:0.9rem; font-weight:600; color:var(--rose-deep); text-decoration:underline;">Want to contribute? →</a>
       </div>
       <div class="hero-visual reveal">
         <div class="hero-visual-ring"></div>
@@ -489,17 +506,17 @@
       </div>
       <div class="steps">
         <div class="step reveal">
-          <div class="step-num">01</div>
-          <h3>Message us on WhatsApp</h3>
-          <p>Send a message whenever you're ready — there's no script to follow, just start where you are.</p>
+          <div class="step-num-row"><div class="step-num">01</div></div>
+          <h3>Start a conversation</h3>
+          <p>Reach out on our site whenever you're ready — no account, no script to follow, just start where you are.</p>
         </div>
         <div class="step reveal">
-          <div class="step-num">02</div>
+          <div class="step-num-row"><div class="step-num">02</div></div>
           <h3>A volunteer listens</h3>
           <p>A trained volunteer responds, understands what you're going through, and notes what kind of support fits best.</p>
         </div>
         <div class="step reveal">
-          <div class="step-num">03</div>
+          <div class="step-num-row"><div class="step-num">03</div></div>
           <h3>You're connected to the right person</h3>
           <p>Depending on what you need, you're matched with a counsellor who can genuinely help — no waiting in the wrong queue.</p>
         </div>
@@ -513,6 +530,17 @@
           <p>If you or someone you know is in crisis, please don't wait for a reply here — reach a helpline or emergency service first.</p>
         </div>
         <a class="btn-primary" href="#" onclick="goPage('resources');return false;">See Crisis Resources</a>
+      </div>
+    </section>
+
+    <section>
+      <div class="contribute-banner reveal">
+        <div class="contribute-banner-text">
+          <div class="eyebrow">Join the circle</div>
+          <h2>Want to contribute through your profession?</h2>
+          <p>Whether you're a teacher, a doctor, a lawyer, a designer, or simply someone who wants to help — there's a place for you here. Join this initiative now.</p>
+        </div>
+        <a class="btn-primary" href="/volunteer">Join This Initiative →</a>
       </div>
     </section>
   </div>

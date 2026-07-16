@@ -84,12 +84,25 @@
     width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
     font-size:0.95rem; background:#fff; font-family:inherit; color:inherit;
   }
-  .problem-pill-grid{display:flex; gap:8px; flex-wrap:wrap;}
-  .problem-pill{
-    padding:9px 15px; border-radius:99px; border:1.5px solid rgba(116,40,66,0.25);
-    background:#fff; font-size:0.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  .problem-dropdown{position:relative;}
+  .problem-dropdown-box{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
+    width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
+    background:#fff; min-height:24px; box-sizing:border-box;
   }
-  .problem-pill.selected{background:var(--rose-deep); color:#fff; border-color:var(--rose-deep);}
+  .problem-dropdown-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .problem-placeholder{color:#9a8a90; font-size:0.95rem;}
+  .problem-chip{background:var(--rose-deep); color:#fff; font-size:0.8rem; font-weight:600; padding:4px 10px; border-radius:99px;}
+  .problem-dropdown-arrow{color:var(--rose-deep); font-size:0.8rem; flex-shrink:0;}
+  .problem-dropdown-panel{
+    display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:20;
+    background:#fff; border:1.5px solid rgba(116,40,66,0.2); border-radius:10px;
+    max-height:260px; overflow-y:auto; padding:6px; box-shadow:0 8px 24px rgba(116,40,66,0.15);
+  }
+  .problem-dropdown-panel.open{display:block;}
+  .problem-option{display:flex; align-items:center; gap:9px; padding:9px 10px; font-size:0.9rem; border-radius:7px; cursor:pointer;}
+  .problem-option:hover{background:var(--ivory-deep, #f6ece7);}
+  .problem-option input{width:16px; height:16px; flex-shrink:0;}
 
   /* ---------- Access code reveal ---------- */
   .code-reveal{display:none; text-align:center; background:#fff; border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line); padding:32px 26px; margin-bottom:20px;}
@@ -199,17 +212,28 @@
       </div>
       <div class="intake-row">
         <label>Problem <span style="font-weight:400; color:var(--ink-soft);">(tap all that fit)</span></label>
-        <div class="problem-pill-grid" id="intakeProblem">
-          <button type="button" class="problem-pill" data-tag="Depression" onclick="toggleProblemPill(this)">Depression</button>
-          <button type="button" class="problem-pill" data-tag="Anxiety" onclick="toggleProblemPill(this)">Anxiety</button>
-          <button type="button" class="problem-pill" data-tag="Domestic Violence" onclick="toggleProblemPill(this)">Domestic Violence</button>
-          <button type="button" class="problem-pill" data-tag="Suicidal Thoughts" onclick="toggleProblemPill(this)">Suicidal Thoughts</button>
-          <button type="button" class="problem-pill" data-tag="Marital Conflict" onclick="toggleProblemPill(this)">Marital Conflict</button>
-          <button type="button" class="problem-pill" data-tag="Grief" onclick="toggleProblemPill(this)">Grief</button>
-          <button type="button" class="problem-pill" data-tag="Motherhood Stress" onclick="toggleProblemPill(this)">Motherhood Stress</button>
-          <button type="button" class="problem-pill" data-tag="Faith & Guilt" onclick="toggleProblemPill(this)">Faith & Guilt</button>
-          <button type="button" class="problem-pill" data-tag="General Support" onclick="toggleProblemPill(this)">General Support</button>
+        <div class="problem-dropdown" id="problemDropdown">
+          <div class="problem-dropdown-box" onclick="toggleProblemDropdown(event)">
+            <div class="problem-dropdown-chips" id="problemChips"><span class="problem-placeholder">Choose the closest fit</span></div>
+            <span class="problem-dropdown-arrow">▾</span>
+          </div>
+          <div class="problem-dropdown-panel" id="problemPanel">
+            <label class="problem-option"><input type="checkbox" value="Marital / Husband Issues" onchange="updateProblemChips()"> Marital / Husband Issues</label>
+            <label class="problem-option"><input type="checkbox" value="Divorce & Separation" onchange="updateProblemChips()"> Divorce & Separation</label>
+            <label class="problem-option"><input type="checkbox" value="In-Law / Family Issues" onchange="updateProblemChips()"> In-Law / Family Issues</label>
+            <label class="problem-option"><input type="checkbox" value="Children & Parenting" onchange="updateProblemChips()"> Children & Parenting</label>
+            <label class="problem-option"><input type="checkbox" value="Financial Difficulties" onchange="updateProblemChips()"> Financial Difficulties</label>
+            <label class="problem-option"><input type="checkbox" value="Mental Health & Emotional Well-being" onchange="updateProblemChips()"> Mental Health & Emotional Well-being</label>
+            <label class="problem-option"><input type="checkbox" value="Suicidal Thoughts" onchange="updateProblemChips()"> Suicidal Thoughts</label>
+            <label class="problem-option"><input type="checkbox" value="Deen & Spiritual Guidance" onchange="updateProblemChips()"> Deen & Spiritual Guidance</label>
+            <label class="problem-option"><input type="checkbox" value="Dua & Istirshaadan Araz" onchange="updateProblemChips()"> Dua & Istirshaadan Araz</label>
+            <label class="problem-option"><input type="checkbox" value="Personal / Life Challenges" onchange="updateProblemChips()"> Personal / Life Challenges</label>
+            <label class="problem-option"><input type="checkbox" value="Domestic Conflict" onchange="updateProblemChips()"> Domestic Conflict</label>
+            <label class="problem-option"><input type="checkbox" value="Abuse or Safety Concerns" onchange="updateProblemChips()"> Abuse or Safety Concerns</label>
+            <label class="problem-option"><input type="checkbox" value="Other" onchange="updateProblemChips()"> Other (Please Specify)</label>
+          </div>
         </div>
+        <input type="text" id="intakeProblemOther" placeholder="Please specify…" style="display:none; margin-top:10px;">
       </div>
     </div>
     <p class="sub" style="margin-top:20px; margin-bottom:10px;">Now, tell us what's going on. Write whatever feels right — a sentence or a few paragraphs. A volunteer will read this and respond as soon as they can.</p>
@@ -261,15 +285,33 @@
     document.getElementById('firstMessageInput').focus();
   }
 
-  function toggleProblemPill(el){
-    el.classList.toggle('selected');
+  function toggleProblemDropdown(e){
+    e.stopPropagation();
+    document.getElementById('problemPanel').classList.toggle('open');
+  }
+  document.addEventListener('click', function(e){
+    const dd = document.getElementById('problemDropdown');
+    if(dd && !dd.contains(e.target)) document.getElementById('problemPanel').classList.remove('open');
+  });
+  function updateProblemChips(){
+    const checked = Array.from(document.querySelectorAll('#problemPanel input[type=checkbox]:checked'));
+    const chipsBox = document.getElementById('problemChips');
+    chipsBox.innerHTML = checked.length
+      ? checked.map(c => `<span class="problem-chip">${c.value === 'Other' ? 'Other (Please Specify)' : c.value}</span>`).join('')
+      : '<span class="problem-placeholder">Choose the closest fit</span>';
+    const otherChecked = checked.some(c => c.value === 'Other');
+    document.getElementById('intakeProblemOther').style.display = otherChecked ? 'block' : 'none';
   }
 
   async function startConversation(){
     const name = document.getElementById('intakeName').value.trim();
     const location = document.getElementById('intakeLocation').value.trim();
     const its = document.getElementById('intakeIts').value.trim();
-    const problem = Array.from(document.querySelectorAll('.problem-pill.selected')).map(el=>el.dataset.tag).join(', ');
+    const otherText = document.getElementById('intakeProblemOther').value.trim();
+    const problem = Array.from(document.querySelectorAll('#problemPanel input[type=checkbox]:checked')).map(c=>{
+      if(c.value === 'Other') return otherText ? `Other: ${otherText}` : 'Other';
+      return c.value;
+    }).join(', ');
     const text = document.getElementById('firstMessageInput').value.trim();
     if(!name || !location || !its || !problem){ showToast('Please fill in all the fields above'); return; }
     if(!text){ showToast('Please write something first'); return; }
