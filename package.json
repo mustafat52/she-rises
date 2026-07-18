@@ -4,5 +4,9 @@
   "scripts": {
     "build:config": "node scripts/build-config.js",
     "build": "node scripts/build-config.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "@supabase/supabase-js": "^2.43.0"
   }
 }

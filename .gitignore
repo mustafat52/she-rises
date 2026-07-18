@@ -1,3 +1,16 @@
+# Secrets — generated locally or in Vercel's dashboard, never committed
+.env
 .env.local
+.env.*.local
 config.js
+
+# Dependencies
 node_modules/
+
+# Vercel's local project cache
+.vercel
+
+# OS/editor cruft
+.DS_Store
+*.log
+npm-debug.log*
