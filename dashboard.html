@@ -288,6 +288,7 @@
 
   .conv-thread{background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:16px; display:flex; flex-direction:column; overflow:hidden;}
   .conv-empty{margin:auto; color:var(--ink-soft); font-size:0.92rem; text-align:center; padding:40px;}
+  .mobile-back-btn{display:none;}
   .conv-thread-head{
     padding:16px 20px; border-bottom:1px solid rgba(116,40,66,0.1); display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
   }
@@ -303,7 +304,24 @@
   }
   .conv-thread-input button{background:var(--rose-deep); color:var(--ivory); padding:0 18px; border-radius:10px; font-weight:700;}
   .conv-thread-input button:hover{background:var(--rose-deep-dark);}
-  @media(max-width:860px){ .conv-wrap{grid-template-columns:1fr; height:auto;} .conv-list{max-height:220px;} }
+  @media(max-width:860px){ .conv-wrap{grid-template-columns:1fr; height:auto;} .conv-list{max-height:220px;}
+    /* Mobile drill-down: default shows the list only; once a conversation is
+       selected (.thread-open on #convWrap), the thread takes over the full
+       screen and the list is hidden — tapping "Back" reverses it. Desktop is
+       untouched, this only applies under the 860px breakpoint. */
+    .conv-wrap{ position:relative; }
+    #convListPanel{ max-height:none; }
+    .conv-list{ max-height:none; }
+    .conv-thread{ display:none; }
+    .mobile-back-btn{ display:none; }
+    .conv-wrap.thread-open #convListPanel{ display:none; }
+    .conv-wrap.thread-open .conv-thread{
+      display:flex; flex-direction:column;
+      position:fixed; inset:0; z-index:50; background:var(--ivory);
+      height:100dvh; border-radius:0; border:none;
+    }
+    .conv-wrap.thread-open .mobile-back-btn{ display:inline-flex; }
+  }
 
 
   @media(max-width:860px){
@@ -375,7 +393,7 @@
     <div class="case-list" id="caseList"><div class="loading-row">Loading cases…</div></div>
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
-      <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+      <div id="convListPanel" style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
         <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0;"></div>
         <div class="conv-list" id="convList" style="flex:1;"><div class="loading-row">Loading conversations…</div></div>
       </div>
@@ -746,6 +764,11 @@
     renderConversationList();
     const c = conversations.find(x=>x.id===caseId);
     if(c) renderConversationThread(c);
+    document.getElementById('convWrap').classList.add('thread-open'); // full-screen drill-down on mobile; no-op on desktop
+  }
+
+  function closeThread(){
+    document.getElementById('convWrap').classList.remove('thread-open');
   }
 
   function renderConversationThread(c){
@@ -758,6 +781,7 @@
 
     document.getElementById('convThread').innerHTML = `
       <div class="conv-thread-head">
+        <button type="button" class="mobile-back-btn" onclick="closeThread()" style="border:none; background:none; color:var(--rose-deep); font-weight:700; font-size:0.9rem; padding:0 0 10px; cursor:pointer; align-items:center; gap:6px;">← Back to conversations</button>
         <h3>${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || 'Anonymous conversation')} <button class="rename-btn" onclick="openRenameModal('${c.id}')" title="Rename">✎</button> <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${c.case_ref} · ${statusLabel}</span></h3>
         ${intakeLine ? `<div class="sub" style="margin-top:2px; font-size:0.82rem; color:var(--ink-soft);">${intakeLine}</div>` : ''}
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">

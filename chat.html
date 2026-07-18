@@ -388,13 +388,14 @@
 
   function renderConversation(rows){
     const first = rows[0];
-    const signature = first.status + '|' + first.assigned_name + '|' + rows.length;
+    const signature = first.status + '|' + first.assigned_role + '|' + rows.length;
     if(signature === lastRenderSignature) return; // nothing actually changed — skip re-render entirely
     lastRenderSignature = signature;
 
     const statusLabel = {new:'Waiting to be reviewed', triaged:'Being reviewed', pending_counsellor:'Finding you a counsellor', assigned:'Assigned', in_progress:'In progress', resolved:'Resolved', closed:'Closed'}[first.status] || first.status;
+    const roleLabel = first.assigned_role === 'counsellor' ? 'Speaking with a counsellor' : first.assigned_role === 'volunteer' ? 'Speaking with a volunteer' : 'Waiting for a volunteer';
     document.getElementById('chatStatus').innerHTML =
-      `<span>${first.assigned_name ? `Speaking with <strong>${first.assigned_name}</strong>` : 'Waiting for a volunteer'}</span><span>${statusLabel}</span>`;
+      `<span>${roleLabel}</span><span>${statusLabel}</span>`;
 
     const container = document.getElementById('chatMessages');
     const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
