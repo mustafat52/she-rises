@@ -90,6 +90,7 @@
     background:#fff; font-size:0.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
   }
   .gender-pill.selected{background:var(--rose-deep); color:#fff; border-color:var(--rose-deep);}
+  .problem-dropdown{position:relative;}
   .problem-dropdown-box{
     display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
     width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
@@ -114,10 +115,17 @@
   .code-reveal.active{display:block;}
   .code-reveal h2{font-size:1.2rem; margin-bottom:10px;}
   .code-reveal p{color:var(--ink-soft); font-size:0.88rem; margin-bottom:18px;}
+  .code-box-row{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
   .code-box{
     font-family:'IBM Plex Mono',monospace; font-size:1.6rem; letter-spacing:0.15em; font-weight:700;
-    background:var(--ivory-deep); border-radius:12px; padding:16px; color:var(--rose-deep); margin-bottom:14px;
+    background:var(--ivory-deep); border-radius:12px; padding:16px; color:var(--rose-deep); flex:1;
   }
+  .code-copy-btn{
+    flex-shrink:0; background:var(--rose-deep); color:#fff; border:none; border-radius:10px;
+    padding:0 18px; height:100%; align-self:stretch; font-weight:700; font-size:0.85rem; cursor:pointer;
+  }
+  .code-copy-btn:hover{background:var(--rose-deep-dark);}
+  .code-copy-btn.copied{background:var(--teal, #2f6f5e);}
   .code-warning{font-size:0.78rem; color:var(--ink-soft); opacity:0.85; line-height:1.5;}
   .code-continue{margin-top:18px; background:var(--rose-deep); color:var(--ivory); padding:12px 26px; border-radius:99px; font-weight:700; font-size:0.9rem;}
   .code-continue:hover{background:var(--rose-deep-dark);}
@@ -212,8 +220,6 @@
         <div class="gender-pill-row" id="intakeGender">
           <button type="button" class="gender-pill" data-value="Female" onclick="selectGenderPill(this)">Female</button>
           <button type="button" class="gender-pill" data-value="Male" onclick="selectGenderPill(this)">Male</button>
-          <button type="button" class="gender-pill" data-value="Other" onclick="selectGenderPill(this)">Other</button>
-          <button type="button" class="gender-pill" data-value="Prefer not to say" onclick="selectGenderPill(this)">Prefer not to say</button>
         </div>
       </div>
       <div class="intake-row">
@@ -260,7 +266,10 @@
   <div id="codeReveal" class="code-reveal">
     <h2>Your conversation has started</h2>
     <p>Save this code somewhere private — it's the only way to come back to this exact conversation.</p>
-    <div class="code-box" id="codeBoxText">——————</div>
+    <div class="code-box-row">
+      <div class="code-box" id="codeBoxText">——————</div>
+      <button type="button" class="code-copy-btn" onclick="copyAccessCode()" id="copyCodeBtn" title="Copy code">Copy</button>
+    </div>
     <div class="code-warning">If you're on a shared or family device, don't save this in a way others could find — write it somewhere private, or simply remember it.</div>
     <button class="code-continue" onclick="enterChatView()">Continue to conversation →</button>
   </div>
@@ -359,6 +368,33 @@
     if(!code){ showToast('Please enter your code'); return; }
     currentAccessCode = code;
     await loadAndEnterChat();
+  }
+
+  async function copyAccessCode(){
+    if(!currentAccessCode) return;
+    const btn = document.getElementById('copyCodeBtn');
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(currentAccessCode);
+      } else {
+        // Fallback for contexts where the modern Clipboard API isn't available
+        const temp = document.createElement('textarea');
+        temp.value = currentAccessCode;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.focus();
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+      }
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    }catch(e){
+      console.error('Could not copy code', e);
+      showToast('Could not copy — please select and copy manually');
+    }
   }
 
   function enterChatView(){
