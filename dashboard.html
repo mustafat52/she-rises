@@ -308,10 +308,18 @@
 
   @media(max-width:860px){
     #app.active{grid-template-columns:1fr; grid-template-rows:auto 1fr;}
-    aside{flex-direction:row; align-items:center; overflow-x:auto; padding:16px 18px;}
-    .side-brand{margin-bottom:0;}
+    aside{
+      flex-direction:row; flex-wrap:wrap; align-items:center;
+      padding:14px 16px; gap:10px 16px;
+    }
+    .side-brand{margin-bottom:0; flex-shrink:0;}
     .side-user{display:none;}
-    .side-nav{flex-direction:row;}
+    #awayToggleWrap{margin-bottom:0 !important; margin-left:auto; flex-shrink:0;}
+    .side-nav{
+      flex-direction:row; flex-wrap:nowrap; overflow-x:auto; gap:8px;
+      width:100%; padding-bottom:2px;
+    }
+    .side-nav .side-link{flex-shrink:0; white-space:nowrap;}
     main{padding:24px 18px;}
   }
 </style>
@@ -346,8 +354,8 @@
       <div class="uname" id="sideName">—</div>
     </div>
     <div id="awayToggleWrap" style="display:none; margin-bottom:14px;">
-      <label style="display:flex; align-items:center; gap:8px; color:#F4DEE4; font-size:0.85rem; cursor:pointer;">
-        <input type="checkbox" id="awayToggle" onchange="toggleAway()"> Away (pause new conversations)
+      <label style="display:flex; align-items:center; gap:8px; color:#F4DEE4; font-size:0.85rem; cursor:pointer;" title="Pause new conversations from being assigned to you">
+        <input type="checkbox" id="awayToggle" onchange="toggleAway()"> Away
       </label>
     </div>
     <nav class="side-nav" id="sideNav"></nav>
@@ -662,7 +670,7 @@
       // chat case; counsellors see only the open pending_counsellor queue plus
       // whatever's assigned to them — no client-side filtering needed.
       const { data, error } = await sb.from('cases')
-        .select('*, case_messages(id, sender_type, body, created_at), counsellor_case_requests(id, counsellor_id, status, requested_at, profiles(full_name))')
+        .select('*, case_messages(id, sender_type, body, created_at)')
         .eq('source', 'chat')
         .order('updated_at', { ascending:false });
       if(error) throw error;
@@ -677,7 +685,7 @@
       if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
     }catch(e){
       console.error('Could not load conversations', e);
-      document.getElementById('convList').innerHTML = '<div class="loading-row">Could not load conversations</div>';
+      document.getElementById('convList').innerHTML = `<div class="loading-row">Could not load conversations — ${escapeConvHtml((e && e.message) || 'unknown error')}</div>`;
     }
     if(!convPollInterval){
       convPollInterval = setInterval(loadConversations, 8000);
