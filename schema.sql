@@ -488,3 +488,473 @@ $$ language plpgsql;
 
 create trigger trg_set_case_ref before insert on cases
   for each row execute function set_case_ref();
+
+-- ============================================================
+-- INTAKE → VOLUNTEER → COUNSELLOR ASSIGNMENT FLOW
+-- ============================================================
+-- Adds: the intake-form fields captured before a chat begins, the
+-- consent/escalation trail, the counsellor request queue, the
+-- "assigned counsellor" handoff (separate from assigned_to, which
+-- stays the volunteer who owns/triages the chat), and the system
+-- message that tells the seeker who she's been connected to.
+--
+-- Nothing here changes existing columns or drops anything — it's
+-- safe to run on top of the schema above on a live project.
+-- ============================================================
+
+-- ---------- intake form fields, captured at start_conversation ----------
+alter table cases add column if not exists seeker_name text;
+alter table cases add column if not exists seeker_location text;
+alter table cases add column if not exists its_number text;
+alter table cases add column if not exists problem_category text; -- the "one word" problem from the intake form
+
+-- ---------- counsellor handoff ----------
+-- assigned_to stays the volunteer who owns the chat throughout.
+-- assigned_counsellor is null until a counsellor is actually confirmed.
+alter table cases add column if not exists assigned_counsellor uuid references profiles(id);
+alter table cases add column if not exists consent_given_at timestamptz;   -- when the seeker agreed to see a counsellor
+alter table cases add column if not exists escalated_at timestamptz;       -- when it entered the pending_counsellor queue — this is what the 24h admin check is based on
+alter table cases add column if not exists closed_by uuid references profiles(id);
+alter table cases add column if not exists close_reason text;
+
+-- pending_counsellor: consent given, sitting in the open queue for any counsellor to request.
+-- (assigned already existed in the original enum and now specifically means "counsellor confirmed".)
+alter type case_status add value if not exists 'pending_counsellor';
+
+-- the auto system message ("X has been assigned to you...") needs a non-human sender type
+alter type message_sender add value if not exists 'system';
+
+create index if not exists idx_cases_escalated_at on cases(escalated_at);
+create index if not exists idx_cases_assigned_counsellor on cases(assigned_counsellor);
+
+-- ---------- counsellor request queue ----------
+-- A counsellor viewing the pending_counsellor list asks permission rather
+-- than grabbing the case outright. The assigned volunteer approves or
+-- declines. Approving one request auto-declines the others for that case.
+create type request_status as enum ('pending', 'approved', 'declined');
+
+create table if not exists counsellor_case_requests (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references cases(id) on delete cascade,
+  counsellor_id uuid not null references profiles(id),
+  status request_status not null default 'pending',
+  requested_at timestamptz not null default now(),
+  responded_at timestamptz,
+  responded_by uuid references profiles(id),
+  unique (case_id, counsellor_id)   -- a counsellor can't double-request the same case
+);
+
+alter table counsellor_case_requests enable row level security;
+
+-- Counsellors see their own requests (so they know what they've already asked for).
+create policy "counsellor reads own requests" on counsellor_case_requests
+  for select using (counsellor_id = auth.uid());
+-- Volunteers/admins see requests on cases they can already see (i.e. all of them).
+create policy "volunteers read requests" on counsellor_case_requests
+  for select using (current_role_name() in ('volunteer', 'admin'));
+-- A counsellor can request any case that's actually open for requests.
+create policy "counsellor creates request" on counsellor_case_requests
+  for insert with check (
+    counsellor_id = auth.uid()
+    and exists (select 1 from cases c where c.id = case_id and c.status = 'pending_counsellor')
+  );
+-- Only the volunteer/admin side responds (approve/decline) to requests.
+create policy "volunteers respond to requests" on counsellor_case_requests
+  for update using (current_role_name() in ('volunteer', 'admin'));
+
+-- ---------- counsellors need to browse (not just their own cases) ----------
+-- Existing policy "counsellors see own cases" only covers assigned_to =
+-- auth.uid() (which is the volunteer field, not relevant to counsellors).
+-- This adds: any counsellor can see the open pending_counsellor queue,
+-- and a counsellor can see a case once she's the one assigned to it.
+create policy "counsellors browse pending queue" on cases
+  for select using (
+    current_role_name() = 'counsellor'
+    and (status = 'pending_counsellor' or assigned_counsellor = auth.uid())
+  );
+
+-- Counsellors can update (close) only cases actually assigned to them.
+create policy "counsellors update own assigned cases" on cases
+  for update using (assigned_counsellor = auth.uid());
+
+-- case_messages: counsellors also need to read/send on cases assigned to them
+-- via assigned_counsellor, not just the old assigned_to check.
+create policy "counsellor reads messages on own case" on case_messages
+  for select using (
+    exists (select 1 from cases c where c.id = case_messages.case_id and c.assigned_counsellor = auth.uid())
+  );
+create policy "counsellor sends messages on own case" on case_messages
+  for insert with check (
+    sender_type = 'counsellor'
+    and exists (select 1 from cases c where c.id = case_messages.case_id and c.assigned_counsellor = auth.uid())
+  );
+
+-- ---------- start_conversation: now takes the intake form fields ----------
+create or replace function start_conversation(
+  p_name text,
+  p_location text,
+  p_its_number text,
+  p_problem_category text,
+  p_first_message text
+)
+returns table(out_access_code text, out_case_ref text) as $$
+declare
+  v_code text;
+  v_case_id uuid;
+  v_case_ref text;
+  v_assignee uuid;
+begin
+  select p.id into v_assignee
+  from profiles p
+  where p.role = 'volunteer' and p.is_active = true and p.is_away = false
+  order by (
+    select count(*) from cases c
+    where c.assigned_to = p.id and c.status not in ('resolved','closed')
+  ) asc
+  limit 1;
+
+  v_code := generate_access_code();
+  while exists (select 1 from cases where access_code = v_code) loop
+    v_code := generate_access_code();
+  end loop;
+
+  insert into cases (
+    alias, note, source, status, severity, assigned_to, access_code,
+    seeker_name, seeker_location, its_number, problem_category
+  )
+  values (
+    coalesce(p_name, 'Anonymous conversation'), p_first_message, 'chat', 'new', 'standard', v_assignee, v_code,
+    p_name, p_location, p_its_number, p_problem_category
+  )
+  returning id, case_ref into v_case_id, v_case_ref;
+
+  insert into case_messages (case_id, sender_type, body)
+  values (v_case_id, 'seeker', p_first_message);
+
+  return query select v_code, v_case_ref;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- get_conversation: show the counsellor's name once confirmed ----------
+-- Overrides the original definition above. "Speaking with X" should point to
+-- the counsellor once she's confirmed, not the volunteer who still owns the
+-- chat behind the scenes. Defined here (not in-place above) because
+-- assigned_counsellor doesn't exist until this migration section runs.
+create or replace function get_conversation(p_access_code text)
+returns table(
+  case_ref text, status case_status, severity case_severity,
+  assigned_name text, message_id uuid, sender_type message_sender, body text, sent_at timestamptz
+) as $$
+begin
+  return query
+  select c.case_ref, c.status, c.severity, p.full_name,
+         m.id, m.sender_type, m.body, m.created_at
+  from cases c
+  left join profiles p on p.id = coalesce(c.assigned_counsellor, c.assigned_to)
+  join case_messages m on m.case_id = c.id
+  where c.access_code = p_access_code
+  order by m.created_at asc;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- escalate: volunteer moves a case into the counsellor queue ----------
+-- Called after the volunteer has asked for, and received, the seeker's
+-- consent in-chat. p_actor_id must be the volunteer (or admin) who owns it.
+create or replace function escalate_case_to_counsellor_queue(p_case_id uuid, p_actor_id uuid)
+returns boolean as $$
+begin
+  update cases
+  set status = 'pending_counsellor',
+      consent_given_at = now(),
+      escalated_at = now()
+  where id = p_case_id
+    and status not in ('assigned','resolved','closed');
+
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- counsellor requests permission to take a case ----------
+create or replace function request_case(p_case_id uuid, p_counsellor_id uuid)
+returns boolean as $$
+begin
+  insert into counsellor_case_requests (case_id, counsellor_id)
+  values (p_case_id, p_counsellor_id)
+  on conflict (case_id, counsellor_id) do nothing;
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- volunteer/admin approves a request → confirms the counsellor ----------
+-- This is the single place that: sets assigned_counsellor, flips status to
+-- 'assigned', declines every other pending request on the case, and drops
+-- the system message into the chat so the seeker sees it immediately.
+-- Also used directly by admins for the "unclaimed after 24h" tab (they can
+-- call this by first inserting a request for the counsellor they picked,
+-- or a UI can call assign_counsellor_directly below instead).
+create or replace function approve_counsellor_request(p_request_id uuid, p_responder_id uuid)
+returns boolean as $$
+declare
+  v_case_id uuid;
+  v_counsellor_id uuid;
+  v_counsellor_name text;
+begin
+  select case_id, counsellor_id into v_case_id, v_counsellor_id
+  from counsellor_case_requests where id = p_request_id and status = 'pending';
+
+  if v_case_id is null then
+    return false;
+  end if;
+
+  select full_name into v_counsellor_name from profiles where id = v_counsellor_id;
+
+  update counsellor_case_requests
+  set status = 'approved', responded_at = now(), responded_by = p_responder_id
+  where id = p_request_id;
+
+  update counsellor_case_requests
+  set status = 'declined', responded_at = now(), responded_by = p_responder_id
+  where case_id = v_case_id and status = 'pending' and id <> p_request_id;
+
+  update cases
+  set assigned_counsellor = v_counsellor_id, status = 'assigned'
+  where id = v_case_id;
+
+  insert into case_messages (case_id, sender_type, body)
+  values (v_case_id, 'system', v_counsellor_name || ' has been assigned to you. She will connect with you shortly.');
+
+  return true;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- volunteer/admin declines a specific request ----------
+create or replace function decline_counsellor_request(p_request_id uuid, p_responder_id uuid)
+returns boolean as $$
+begin
+  update counsellor_case_requests
+  set status = 'declined', responded_at = now(), responded_by = p_responder_id
+  where id = p_request_id and status = 'pending';
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- admin direct assignment (24h-unclaimed tab) ----------
+-- Skips the request/approve dance entirely — admin picks a counsellor
+-- herself for a case nobody has claimed after 24 hours.
+create or replace function assign_counsellor_directly(p_case_id uuid, p_counsellor_id uuid, p_admin_id uuid)
+returns boolean as $$
+declare
+  v_counsellor_name text;
+begin
+  select full_name into v_counsellor_name from profiles where id = p_counsellor_id;
+
+  update cases
+  set assigned_counsellor = p_counsellor_id, status = 'assigned'
+  where id = p_case_id;
+
+  update counsellor_case_requests
+  set status = 'declined', responded_at = now(), responded_by = p_admin_id
+  where case_id = p_case_id and status = 'pending';
+
+  insert into case_messages (case_id, sender_type, body)
+  values (p_case_id, 'system', v_counsellor_name || ' has been assigned to you. She will connect with you shortly.');
+
+  return true;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- close case: volunteer side (no counselling needed) ----------
+create or replace function close_case_as_volunteer(p_case_id uuid, p_actor_id uuid, p_reason text)
+returns boolean as $$
+begin
+  update cases
+  set status = 'resolved', resolved_at = now(), closed_by = p_actor_id, close_reason = p_reason
+  where id = p_case_id and assigned_counsellor is null;
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- close case: counsellor side (counselling concluded) ----------
+create or replace function close_case_as_counsellor(p_case_id uuid, p_actor_id uuid, p_reason text)
+returns boolean as $$
+begin
+  update cases
+  set status = 'closed', resolved_at = now(), closed_by = p_actor_id, close_reason = p_reason
+  where id = p_case_id and assigned_counsellor = p_actor_id;
+  return found;
+end;
+$$ language plpgsql security definer;
+
+create index if not exists idx_counsellor_case_requests_case on counsellor_case_requests(case_id);
+create index if not exists idx_counsellor_case_requests_status on counsellor_case_requests(status);
+
+-- ============================================================
+-- PUSH NOTIFICATIONS ON CASE ASSIGNMENT (Firebase Cloud Messaging)
+-- ============================================================
+-- A volunteer/counsellor won't have the dashboard open all the time, so
+-- the moment a case is assigned to them, Postgres calls out (via pg_net)
+-- to a small Vercel serverless function, which uses the Firebase Admin
+-- SDK to push a phone/browser notification straight to them.
+--
+-- Setup this requires OUTSIDE of this file (see the accompanying notes):
+--   1. A Firebase project with Cloud Messaging enabled.
+--   2. The /api/notify-assignment.js function deployed on Vercel with its
+--      Firebase service account + Supabase service role key as env vars.
+--   3. The two app_config rows below filled in with your real values.
+-- ============================================================
+
+-- Where each volunteer/counsellor's device push token lives.
+alter table profiles add column if not exists fcm_token text;
+
+-- Small key/value config table so the webhook URL + shared secret can be
+-- set/rotated without editing SQL or redeploying anything.
+create table if not exists app_config (
+  key text primary key,
+  value text
+);
+alter table app_config enable row level security;
+-- No one needs client-side access to this — only server-side (postgres
+-- trigger, using security definer) and you via the SQL editor.
+create policy "no client access" on app_config for all using (false);
+
+-- Fill these in once you have your real Vercel URL and a secret you make up:
+insert into app_config (key, value) values
+  ('notify_webhook_url', 'https://REPLACE-WITH-YOUR-VERCEL-DOMAIN.vercel.app/api/notify-assignment'),
+  ('notify_webhook_secret', 'REPLACE-WITH-A-RANDOM-SECRET')
+on conflict (key) do nothing;
+
+create extension if not exists pg_net;
+
+create or replace function notify_case_assignment() returns trigger as $$
+declare
+  v_webhook_url text;
+  v_webhook_secret text;
+begin
+  select value into v_webhook_url from app_config where key = 'notify_webhook_url';
+  select value into v_webhook_secret from app_config where key = 'notify_webhook_secret';
+  if v_webhook_url is null or v_webhook_url like '%REPLACE-WITH%' then
+    return new; -- not configured yet — skip quietly rather than error
+  end if;
+
+  -- New chat just auto-assigned to a volunteer
+  if (TG_OP = 'INSERT' and new.assigned_to is not null) then
+    perform net.http_post(
+      url := v_webhook_url,
+      body := jsonb_build_object('profile_id', new.assigned_to, 'case_ref', new.case_ref, 'role', 'volunteer'),
+      headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
+    );
+  end if;
+
+  -- A counsellor was just confirmed on a case (via approval or direct admin assignment)
+  if (TG_OP = 'UPDATE' and new.assigned_counsellor is not null
+      and new.assigned_counsellor is distinct from old.assigned_counsellor) then
+    perform net.http_post(
+      url := v_webhook_url,
+      body := jsonb_build_object('profile_id', new.assigned_counsellor, 'case_ref', new.case_ref, 'role', 'counsellor'),
+      headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
+    );
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger trg_notify_case_assignment
+  after insert or update on cases
+  for each row execute function notify_case_assignment();
+
+-- ============================================================
+-- GENDER FIELD ON INTAKE
+-- ============================================================
+alter table cases add column if not exists gender text;
+
+-- start_conversation's signature is changing (new p_gender param), so the
+-- old 5-argument version needs to be dropped explicitly first — CREATE OR
+-- REPLACE with a different parameter list creates a second overloaded
+-- function instead of truly replacing the old one.
+drop function if exists start_conversation(text, text, text, text, text);
+
+create or replace function start_conversation(
+  p_name text,
+  p_gender text,
+  p_location text,
+  p_its_number text,
+  p_problem_category text,
+  p_first_message text
+)
+returns table(out_access_code text, out_case_ref text) as $$
+declare
+  v_code text;
+  v_case_id uuid;
+  v_case_ref text;
+  v_assignee uuid;
+begin
+  select p.id into v_assignee
+  from profiles p
+  where p.role = 'volunteer' and p.is_active = true and p.is_away = false
+  order by (
+    select count(*) from cases c
+    where c.assigned_to = p.id and c.status not in ('resolved','closed')
+  ) asc
+  limit 1;
+
+  v_code := generate_access_code();
+  while exists (select 1 from cases where access_code = v_code) loop
+    v_code := generate_access_code();
+  end loop;
+
+  insert into cases (
+    alias, note, source, status, severity, assigned_to, access_code,
+    seeker_name, gender, seeker_location, its_number, problem_category
+  )
+  values (
+    coalesce(p_name, 'Anonymous conversation'), p_first_message, 'chat', 'new', 'standard', v_assignee, v_code,
+    p_name, p_gender, p_location, p_its_number, p_problem_category
+  )
+  returning id, case_ref into v_case_id, v_case_ref;
+
+  insert into case_messages (case_id, sender_type, body)
+  values (v_case_id, 'seeker', p_first_message);
+
+  return query select v_code, v_case_ref;
+end;
+$$ language plpgsql security definer;
+-- ============================================================
+-- COUNSELLOR SELF-CLAIM (no volunteer approval needed)
+-- ============================================================
+-- During the first 24 hours a case sits in the open queue, any counsellor
+-- can take it up directly — first one to successfully claim it wins. The
+-- WHERE clause (status = 'pending_counsellor' and assigned_counsellor is
+-- null) is what makes this race-safe: if two counsellors click at the same
+-- instant, Postgres serializes the two UPDATEs on that row — whichever
+-- commits first flips the status, so the second one's WHERE clause no
+-- longer matches and it cleanly returns false instead of double-assigning.
+--
+-- This supersedes the old request/approve flow for the first 24 hours —
+-- request_case/approve_counsellor_request/decline_counsellor_request and
+-- the counsellor_case_requests table are left in place (harmless, unused)
+-- rather than dropped, in case you want an audit trail or want to bring
+-- back an approval step later.
+create or replace function claim_case_as_counsellor(p_case_id uuid, p_counsellor_id uuid)
+returns boolean as $$
+declare
+  v_counsellor_name text;
+  v_claimed boolean := false;
+begin
+  update cases
+  set assigned_counsellor = p_counsellor_id, status = 'assigned'
+  where id = p_case_id and status = 'pending_counsellor' and assigned_counsellor is null;
+
+  get diagnostics v_claimed = row_count;
+  if not v_claimed then
+    return false; -- someone else already claimed it, or it's no longer open
+  end if;
+
+  select full_name into v_counsellor_name from profiles where id = p_counsellor_id;
+
+  insert into case_messages (case_id, sender_type, body)
+  values (p_case_id, 'system', v_counsellor_name || ' has been assigned to you. She will connect with you shortly.');
+
+  return true;
+end;
+$$ language plpgsql security definer;

@@ -84,7 +84,12 @@
     width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
     font-size:0.95rem; background:#fff; font-family:inherit; color:inherit;
   }
-  .problem-dropdown{position:relative;}
+  .gender-pill-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .gender-pill{
+    padding:9px 15px; border-radius:99px; border:1.5px solid rgba(116,40,66,0.25);
+    background:#fff; font-size:0.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .gender-pill.selected{background:var(--rose-deep); color:#fff; border-color:var(--rose-deep);}
   .problem-dropdown-box{
     display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
     width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
@@ -203,6 +208,15 @@
         <input type="text" id="intakeName" placeholder="Your name">
       </div>
       <div class="intake-row">
+        <label>Gender</label>
+        <div class="gender-pill-row" id="intakeGender">
+          <button type="button" class="gender-pill" data-value="Female" onclick="selectGenderPill(this)">Female</button>
+          <button type="button" class="gender-pill" data-value="Male" onclick="selectGenderPill(this)">Male</button>
+          <button type="button" class="gender-pill" data-value="Other" onclick="selectGenderPill(this)">Other</button>
+          <button type="button" class="gender-pill" data-value="Prefer not to say" onclick="selectGenderPill(this)">Prefer not to say</button>
+        </div>
+      </div>
+      <div class="intake-row">
         <label for="intakeLocation">Location</label>
         <input type="text" id="intakeLocation" placeholder="City, or 'online only'">
       </div>
@@ -227,6 +241,7 @@
             <label class="problem-option"><input type="checkbox" value="Suicidal Thoughts" onchange="updateProblemChips()"> Suicidal Thoughts</label>
             <label class="problem-option"><input type="checkbox" value="Deen & Spiritual Guidance" onchange="updateProblemChips()"> Deen & Spiritual Guidance</label>
             <label class="problem-option"><input type="checkbox" value="Dua & Istirshaadan Araz" onchange="updateProblemChips()"> Dua & Istirshaadan Araz</label>
+            <label class="problem-option"><input type="checkbox" value="Araz" onchange="updateProblemChips()"> Araz</label>
             <label class="problem-option"><input type="checkbox" value="Personal / Life Challenges" onchange="updateProblemChips()"> Personal / Life Challenges</label>
             <label class="problem-option"><input type="checkbox" value="Domestic Conflict" onchange="updateProblemChips()"> Domestic Conflict</label>
             <label class="problem-option"><input type="checkbox" value="Abuse or Safety Concerns" onchange="updateProblemChips()"> Abuse or Safety Concerns</label>
@@ -285,6 +300,11 @@
     document.getElementById('firstMessageInput').focus();
   }
 
+  function selectGenderPill(el){
+    document.querySelectorAll('.gender-pill').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
   function toggleProblemDropdown(e){
     e.stopPropagation();
     document.getElementById('problemPanel').classList.toggle('open');
@@ -305,6 +325,8 @@
 
   async function startConversation(){
     const name = document.getElementById('intakeName').value.trim();
+    const genderEl = document.querySelector('.gender-pill.selected');
+    const gender = genderEl ? genderEl.dataset.value : '';
     const location = document.getElementById('intakeLocation').value.trim();
     const its = document.getElementById('intakeIts').value.trim();
     const otherText = document.getElementById('intakeProblemOther').value.trim();
@@ -313,11 +335,11 @@
       return c.value;
     }).join(', ');
     const text = document.getElementById('firstMessageInput').value.trim();
-    if(!name || !location || !its || !problem){ showToast('Please fill in all the fields above'); return; }
+    if(!name || !gender || !location || !its || !problem){ showToast('Please fill in all the fields above'); return; }
     if(!text){ showToast('Please write something first'); return; }
     try{
       const { data, error } = await sb.rpc('start_conversation', {
-        p_name: name, p_location: location, p_its_number: its,
+        p_name: name, p_gender: gender, p_location: location, p_its_number: its,
         p_problem_category: problem, p_first_message: text
       });
       if(error) throw error;

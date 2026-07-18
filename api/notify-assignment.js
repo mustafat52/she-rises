@@ -53,7 +53,10 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const title = role === 'counsellor' ? 'A case has been assigned to you' : 'A new conversation has been assigned to you';
+    const name = profile.full_name || 'there';
+    const title = role === 'counsellor'
+      ? `${name}, a case has been assigned to you`
+      : `${name}, you have been assigned a case`;
     const body = case_ref ? `Case ${case_ref} — open She Rises to respond.` : 'Open She Rises to respond.';
 
     await admin.messaging().send({

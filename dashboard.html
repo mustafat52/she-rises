@@ -721,14 +721,14 @@
       const last = msgs[msgs.length-1];
       const preview = last ? last.body : '(no messages yet)';
       const time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
-      const pendingReqCount = (c.counsellor_case_requests||[]).filter(r=>r.status==='pending').length;
+      const isUnclaimed = isUnclaimed24h(c);
       return `<div class="conv-item ${c.id===activeConvCaseId?'active':''}" onclick="selectConversation('${c.id}')">
         <div class="conv-item-top">
           <span class="conv-ref">${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || c.case_ref)}</span>
           <span class="conv-sev ${c.severity}"></span>
         </div>
         <div class="conv-preview">${preview}</div>
-        <div class="conv-time">${time}${pendingReqCount ? ` · ${pendingReqCount} request${pendingReqCount>1?'s':''} waiting` : ''}${isUnclaimed24h(c) ? ' · Unclaimed 24h+' : ''}</div>
+        <div class="conv-time">${time}${isUnclaimed ? ' · Unclaimed 24h+' : ''}</div>
       </div>`;
     }).join('');
   }
@@ -746,7 +746,7 @@
     const isMyCounsellorCase = currentUser.role==='counsellor' && c.assigned_counsellor===currentUser.id;
     const canReply = isOwnerSide || isMyCounsellorCase;
     const statusLabel = STATUS_LABELS[c.status] || c.status;
-    const intakeLine = [c.seeker_name, c.seeker_location, c.its_number ? `ITS ${c.its_number}` : '', c.problem_category].filter(Boolean).join(' · ');
+    const intakeLine = [c.seeker_name, c.gender, c.seeker_location, c.its_number ? `ITS ${c.its_number}` : '', c.problem_category].filter(Boolean).join(' · ');
 
     document.getElementById('convThread').innerHTML = `
       <div class="conv-thread-head">
@@ -800,14 +800,7 @@
     }
     if(currentUser.role==='counsellor'){
       if(c.status === 'pending_counsellor'){
-        const myReq = (c.counsellor_case_requests||[]).find(r=>r.counsellor_id===currentUser.id);
-        if(myReq && myReq.status==='pending'){
-          btns.push(`<span class="app-status-badge pending">Request sent — waiting for volunteer</span>`);
-        } else if(myReq && myReq.status==='declined'){
-          btns.push(`<span class="app-status-badge rejected">Request declined</span>`);
-        } else {
-          btns.push(`<button class="act-btn primary" onclick="requestCase('${c.id}')">Request This Case</button>`);
-        }
+        btns.push(`<button class="act-btn primary" onclick="claimCase('${c.id}')">Take This Case</button>`);
       } else if(isMyCounsellorCase && c.status==='assigned'){
         btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','counsellor')">Close Case</button>`);
       }
@@ -815,22 +808,13 @@
     return btns.join('');
   }
 
-  // Only the volunteer/admin side sees and responds to the request queue on a case.
+  // Informational only — counsellors self-claim directly, nothing here needs a response.
   function renderRequestPanel(c, isOwnerSide){
     if(!isOwnerSide || c.status !== 'pending_counsellor') return '';
-    const requests = (c.counsellor_case_requests||[]).filter(r=>r.status==='pending');
-    if(!requests.length) return `<div class="conv-empty" style="padding:10px 20px; font-size:0.85rem;">No counsellor has requested this case yet.</div>`;
-    return `<div style="padding:10px 20px; border-bottom:1px solid rgba(116,40,66,0.1); background:var(--ivory-deep);">
-      <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:var(--rose-deep); margin-bottom:8px;">Counsellor requests</div>
-      ${requests.map(r=>`
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px;">
-          <span style="font-size:0.9rem;">${(r.profiles && r.profiles.full_name) || 'A counsellor'}</span>
-          <span style="display:flex; gap:6px;">
-            <button class="act-btn primary" style="padding:6px 12px; font-size:0.8rem;" onclick="respondToRequest('${r.id}', true)">Approve</button>
-            <button class="act-btn" style="padding:6px 12px; font-size:0.8rem;" onclick="respondToRequest('${r.id}', false)">Decline</button>
-          </span>
-        </div>`).join('')}
-    </div>`;
+    const label = isUnclaimed24h(c)
+      ? 'Open for over 24 hours — no counsellor has taken it yet. Use "Assign a Counsellor" above to place it directly.'
+      : 'Listed for counsellors — any counsellor can take this case up directly. No action needed from you unless it goes unclaimed past 24 hours.';
+    return `<div style="padding:10px 20px; border-bottom:1px solid rgba(116,40,66,0.1); background:var(--ivory-deep); font-size:0.85rem; color:var(--ink-soft);">${label}</div>`;
   }
 
   async function sendConvReply(caseId){
@@ -884,24 +868,17 @@
     await loadConversations();
   }
 
-  // ---------- counsellor requests a case from the open queue ----------
-  async function requestCase(caseId){
+  // ---------- counsellor self-claims a case from the open queue ----------
+  // Atomic on the DB side — if someone else claimed it a moment earlier,
+  // this comes back false and we just tell her so, rather than assigning
+  // over the top of another counsellor.
+  async function claimCase(caseId){
     try{
-      const { error } = await sb.rpc('request_case', { p_case_id: caseId, p_counsellor_id: currentUser.id });
+      const { data, error } = await sb.rpc('claim_case_as_counsellor', { p_case_id: caseId, p_counsellor_id: currentUser.id });
       if(error) throw error;
-    }catch(e){ console.error(e); showToast('Could not send request: ' + (e.message || 'unknown error')); return; }
-    showToast('Request sent to the volunteer');
-    await loadConversations();
-  }
-
-  // ---------- volunteer/admin approves or declines a counsellor's request ----------
-  async function respondToRequest(requestId, approve){
-    try{
-      const fn = approve ? 'approve_counsellor_request' : 'decline_counsellor_request';
-      const { error } = await sb.rpc(fn, { p_request_id: requestId, p_responder_id: currentUser.id });
-      if(error) throw error;
-    }catch(e){ console.error(e); showToast('Could not respond: ' + (e.message || 'unknown error')); return; }
-    showToast(approve ? 'Counsellor assigned — she will connect with the seeker' : 'Request declined');
+      if(data === false){ showToast('Someone else just took this case'); await loadConversations(); return; }
+    }catch(e){ console.error(e); showToast('Could not take this case: ' + (e.message || 'unknown error')); return; }
+    showToast('Case assigned to you — the seeker has been notified');
     await loadConversations();
   }
 
