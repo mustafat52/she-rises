@@ -59,11 +59,16 @@ module.exports = async (req, res) => {
       : `${name}, you have been assigned a case`;
     const body = case_ref ? `Case ${case_ref} — open She Rises to respond.` : 'Open She Rises to respond.';
 
+    // data-only payload, not `notification` — a `notification` payload gets
+    // auto-displayed by the browser AND handled by our own service worker
+    // code, showing the same push twice. Data-only means only our own
+    // onBackgroundMessage handler ever displays it, exactly once.
     await admin.messaging().send({
       token: profile.fcm_token,
-      notification: { title, body },
-      webpush: {
-        fcmOptions: { link: 'https://REPLACE-WITH-YOUR-VERCEL-DOMAIN.vercel.app/dashboard' },
+      data: {
+        title,
+        body,
+        url: 'https://she-rises-kappa.vercel.app/dashboard',
       },
     });
 

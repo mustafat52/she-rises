@@ -17,12 +17,35 @@ if (self.FIREBASE_CONFIG) {
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    const { title, body } = payload.notification || {};
+    // data-only payload — see api/notify-assignment.js for why. This is
+    // the ONLY place this notification gets displayed (no auto-display
+    // from the browser), so it fires exactly once.
+    const { title, body, url } = payload.data || {};
     self.registration.showNotification(title || 'She Rises', {
       body: body || 'You have a new case assigned.',
       icon: '/favicon.png',
+      data: { url: url || '/dashboard' }, // read back in notificationclick below
     });
   });
 } else {
   console.warn('Firebase not configured yet (missing env vars) — background push notifications disabled.');
 }
+
+// Tapping the notification previously did nothing — this opens the
+// dashboard, or focuses it if it's already open in a tab.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes('/dashboard') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
+  );
+});
