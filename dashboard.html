@@ -725,7 +725,7 @@
       // chat case; counsellors see only the open pending_counsellor queue plus
       // whatever's assigned to them — no client-side filtering needed.
       const { data, error } = await sb.from('cases')
-        .select('*, case_messages(id, sender_type, body, created_at)')
+        .select('*, case_messages(id, sender_type, body, audio_path, created_at)')
         .eq('source', 'chat')
         .order('updated_at', { ascending:false });
       if(error) throw error;
@@ -840,9 +840,12 @@
             return `<div class="conv-msg" style="align-self:center; background:var(--gold-soft); color:var(--rose-deep-dark); font-weight:600; border-radius:99px; text-align:center;">${escapeConvHtml(m.body)}</div>`;
           }
           const isSeeker = m.sender_type === 'seeker';
+          const inner = m.audio_path
+            ? `<audio controls preload="none" data-audio-path="${escapeConvHtml(m.audio_path)}" style="height:36px; max-width:220px; display:block;"></audio>`
+            : escapeConvHtml(m.body);
           return `<div class="conv-msg ${isSeeker?'conv-msg-seeker':'conv-msg-staff'}">
             ${!isSeeker ? `<span class="conv-msg-from">${m.sender_type}</span>` : ''}
-            ${escapeConvHtml(m.body)}
+            ${inner}
           </div>`;
         }).join('')}
       </div>
@@ -854,6 +857,21 @@
     `;
     const msgBox = document.getElementById('convMessages');
     if(msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+    if(msgBox) loadVoiceMessageUrls(msgBox);
+  }
+
+  // Bucket is private, so playback needs a signed URL rather than a plain
+  // src — generated lazily per render, scoped to whichever messages are
+  // actually voice notes.
+  async function loadVoiceMessageUrls(container){
+    const players = container.querySelectorAll('audio[data-audio-path]');
+    for(const el of players){
+      const path = el.dataset.audioPath;
+      try{
+        const { data, error } = await sb.storage.from('voice-notes').createSignedUrl(path, 3600);
+        if(!error && data) el.src = data.signedUrl;
+      }catch(e){ console.error('Could not load voice message', e); }
+    }
   }
 
   function escapeConvHtml(str){

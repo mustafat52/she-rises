@@ -157,6 +157,20 @@
     resize:none; max-height:100px; background:#fff;
   }
   .chat-send-btn{background:var(--rose-deep); color:var(--ivory); padding:0 20px; border-radius:12px; font-weight:700; flex-shrink:0;}
+  .chat-mic-btn{
+    background:var(--ivory-deep); color:var(--rose-deep); border:1.5px solid rgba(116,40,66,0.2);
+    width:44px; height:44px; border-radius:50%; flex-shrink:0; font-size:1.1rem; cursor:pointer;
+  }
+  .chat-mic-btn.recording{background:var(--danger, #b3423a); color:#fff; border-color:var(--danger, #b3423a); animation:mic-pulse 1.4s infinite;}
+  @keyframes mic-pulse{ 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+  .recording-indicator{
+    display:none; align-items:center; gap:10px; padding:8px 18px; background:var(--danger-soft, #fbe4e1);
+    color:var(--danger, #b3423a); font-size:0.85rem; font-weight:600;
+  }
+  .recording-indicator.active{display:flex;}
+  .recording-indicator button{background:none; border:none; color:var(--danger, #b3423a); text-decoration:underline; font-weight:600; font-size:0.85rem; cursor:pointer; margin-left:auto;}
+  .voice-msg{display:flex; align-items:center; gap:8px;}
+  .voice-msg audio{height:36px; max-width:220px;}
   .chat-send-btn:hover{background:var(--rose-deep-dark);}
 
   .toast{
@@ -281,8 +295,10 @@
       <div class="chat-messages" id="chatMessages"></div>
       <div class="chat-input-row">
         <textarea id="chatInput" placeholder="Type a message…" rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+        <button type="button" class="chat-mic-btn" id="micBtn" onclick="toggleRecording()" title="Record a voice message">🎤</button>
         <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
       </div>
+      <div id="recordingIndicator" class="recording-indicator">● Recording… 0:00 <button type="button" onclick="cancelRecording()">Cancel</button></div>
     </div>
   </div>
 
@@ -440,12 +456,30 @@
         return `<div class="msg msg-system">${escapeHtml(m.body)}</div>`;
       }
       const isSeeker = m.sender_type === 'seeker';
+      const inner = m.audio_path
+        ? `<div class="voice-msg"><audio controls preload="none" data-audio-path="${escapeHtml(m.audio_path)}"></audio></div>`
+        : escapeHtml(m.body);
       return `<div class="msg ${isSeeker ? 'msg-seeker' : 'msg-staff'}">
         ${!isSeeker ? `<span class="msg-from">${m.sender_type === 'counsellor' ? 'Counsellor' : 'Volunteer'}</span>` : ''}
-        ${escapeHtml(m.body)}
+        ${inner}
       </div>`;
     }).join('');
     if(wasNearBottom) container.scrollTop = container.scrollHeight;
+    loadVoiceMessageUrls(container);
+  }
+
+  // Bucket is private, so playback needs a signed URL rather than a plain
+  // src — generated lazily per render, scoped to whichever messages are
+  // actually voice notes.
+  async function loadVoiceMessageUrls(container){
+    const players = container.querySelectorAll('audio[data-audio-path]');
+    for(const el of players){
+      const path = el.dataset.audioPath;
+      try{
+        const { data, error } = await sb.storage.from('voice-notes').createSignedUrl(path, 3600);
+        if(!error && data) el.src = data.signedUrl;
+      }catch(e){ console.error('Could not load voice message', e); }
+    }
   }
 
   function escapeHtml(str){
@@ -474,6 +508,94 @@
   }
 
   let pollInterval = null;
+
+  // ================= VOICE RECORDING =================
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordingStartTime = null;
+  let recordingTimerInterval = null;
+  let recordingCancelled = false;
+
+  async function toggleRecording(){
+    if(mediaRecorder && mediaRecorder.state === 'recording'){
+      stopRecording(false);
+    } else {
+      startRecording();
+    }
+  }
+
+  async function startRecording(){
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      audioChunks = [];
+      recordingCancelled = false;
+      mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = onRecordingStop;
+      mediaRecorder.start();
+      recordingStartTime = Date.now();
+      document.getElementById('micBtn').classList.add('recording');
+      document.getElementById('micBtn').textContent = '⏹';
+      document.getElementById('recordingIndicator').classList.add('active');
+      updateRecordingTimer();
+      recordingTimerInterval = setInterval(updateRecordingTimer, 500);
+    }catch(e){
+      console.error('Microphone access failed', e);
+      showToast('Could not access your microphone — check your browser/site permissions');
+    }
+  }
+
+  function updateRecordingTimer(){
+    const secs = Math.floor((Date.now() - recordingStartTime) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = (secs % 60).toString().padStart(2, '0');
+    const indicator = document.getElementById('recordingIndicator');
+    indicator.firstChild.textContent = `● Recording… ${m}:${s} `;
+  }
+
+  function cancelRecording(){
+    recordingCancelled = true;
+    stopRecording(true);
+  }
+
+  function stopRecording(){
+    if(mediaRecorder && mediaRecorder.state === 'recording'){
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    clearInterval(recordingTimerInterval);
+    document.getElementById('micBtn').classList.remove('recording');
+    document.getElementById('micBtn').textContent = '🎤';
+    document.getElementById('recordingIndicator').classList.remove('active');
+  }
+
+  async function onRecordingStop(){
+    if(recordingCancelled){ recordingCancelled = false; return; }
+    if(!audioChunks.length) return;
+    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+    const blob = new Blob(audioChunks, { type: mimeType });
+    await uploadAndSendVoiceMessage(blob, mimeType);
+  }
+
+  async function uploadAndSendVoiceMessage(blob, mimeType){
+    try{
+      const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+      const path = `${currentAccessCode}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: uploadError } = await sb.storage.from('voice-notes').upload(path, blob, { contentType: mimeType });
+      if(uploadError) throw uploadError;
+      const { data, error } = await sb.rpc('send_voice_message_as_seeker', { p_access_code: currentAccessCode, p_storage_path: path });
+      if(error) throw error;
+      if(data === false){ showToast('Could not send voice message — please try again'); return; }
+      const { data: fresh, error: fetchErr } = await sb.rpc('get_conversation', { p_access_code: currentAccessCode });
+      if(!fetchErr && fresh){ lastRenderSignature = ''; renderConversation(fresh); }
+    }catch(e){
+      console.error('Could not send voice message', e);
+      showToast('Could not send voice message: ' + (e.message || 'unknown error'));
+    }
+  }
 
   function subscribeToNewMessages(){
     // Note: Supabase Realtime respects Row Level Security, and the anonymous

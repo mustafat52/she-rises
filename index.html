@@ -349,6 +349,18 @@
     background:var(--teal-soft); border-radius:16px; padding:16px 20px; font-size:0.88rem; color:#2A4A40;
     margin:8px 0 40px; display:flex; gap:12px; align-items:flex-start;
   }
+  .coming-soon-card{
+    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 26px 26px;
+    border-top:3px solid var(--gold-line); padding:40px 38px; max-width:640px; margin:0 auto 80px;
+  }
+  .coming-soon-badge{
+    display:inline-block; background:var(--gold-soft); color:var(--rose-deep-dark); font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:5px 14px; border-radius:99px; margin-bottom:16px;
+  }
+  .coming-soon-card h2{font-size:1.3rem; margin-bottom:16px;}
+  .coming-soon-list{list-style:none; display:flex; flex-direction:column; gap:14px;}
+  .coming-soon-list li{position:relative; padding-left:26px; color:var(--ink-soft); font-size:0.95rem; line-height:1.6;}
+  .coming-soon-list li::before{content:'✦'; position:absolute; left:0; top:1px; color:var(--gold);}
   .counsellor-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:22px; padding-bottom:80px;}
   .counsellor-card{
     background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 22px 22px; padding:26px; border-top:3px solid var(--gold-line);
@@ -420,6 +432,7 @@
       <button class="nav-btn" data-page="support" onclick="goPage('support')">Find Support</button>
       <button class="nav-btn" data-page="counsellors" onclick="goPage('counsellors')">Find a Counsellor</button>
       <button class="nav-btn" data-page="resources" onclick="goPage('resources')">Resources</button>
+      <button class="nav-btn" data-page="workshops" onclick="goPage('workshops')">Workshops</button>
       <button class="nav-btn" data-page="about" onclick="goPage('about')">About</button>
     </nav>
     <a class="nav-cta" href="/chat">Reach Out</a>
@@ -538,7 +551,7 @@
         <div class="contribute-banner-text">
           <div class="eyebrow">Join the circle</div>
           <h2>Want to contribute through your profession?</h2>
-          <p>Whether you're a teacher, a doctor, a lawyer, a designer, or simply someone who wants to help — there's a place for you here. Join this initiative now.</p>
+          <p>Whether you're a counsellor, a doctor, a lawyer, a designer, or simply someone who wants to help — there's a place for you here. Join this initiative now.</p>
         </div>
         <a class="btn-primary" href="/volunteer">Join This Initiative →</a>
       </div>
@@ -688,6 +701,28 @@
     </div>
   </div>
 
+  <!-- ================= WORKSHOPS ================= -->
+  <div class="page" id="page-workshops">
+    <div class="page-hero jaali-bg">
+      <div class="eyebrow reveal">Workshops</div>
+      <h1 class="reveal">Learn directly from professionals — coming soon.</h1>
+      <p class="reveal">We're building a space for live and recorded workshops on the topics women write to us about most — mental health, marriage, motherhood, grief, and more — each led by a qualified professional from our network.</p>
+    </div>
+
+    <section style="padding-top:0;">
+      <div class="coming-soon-card reveal">
+        <div class="coming-soon-badge">Coming Soon</div>
+        <h2>What to expect</h2>
+        <ul class="coming-soon-list">
+          <li>Workshops run by counsellors, therapists, and other professionals already part of She Rises</li>
+          <li>A range of topics — the same ones you already see across our Voices library and counsellor directory</li>
+          <li>Simple, secure booking with a payment option, so a workshop is confirmed the moment you register</li>
+        </ul>
+        <p class="sub" style="margin-top:18px;">Want to be notified the moment the first workshop opens? <a href="#" onclick="goPage('home');return false;">Reach out to us</a> in the meantime and we'll let you know personally.</p>
+      </div>
+    </section>
+  </div>
+
   <!-- ================= ABOUT ================= -->
   <div class="page" id="page-about">
     <div class="about-hero jaali-bg">
@@ -735,6 +770,7 @@
         <a href="#" onclick="goPage('support');return false;">Find Support</a>
         <a href="#" onclick="goPage('counsellors');return false;">Find a Counsellor</a>
         <a href="#" onclick="goPage('resources');return false;">Resources</a>
+        <a href="#" onclick="goPage('workshops');return false;">Workshops</a>
       </div>
       <div class="footer-col">
         <h4>Connect</h4>
