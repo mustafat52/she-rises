@@ -162,6 +162,7 @@
     width:44px; height:44px; border-radius:50%; flex-shrink:0; font-size:1.1rem; cursor:pointer;
   }
   .chat-mic-btn.recording{background:var(--danger, #b3423a); color:#fff; border-color:var(--danger, #b3423a); animation:mic-pulse 1.4s infinite;}
+  .chat-mic-btn:disabled{opacity:0.4; cursor:not-allowed;}
   @keyframes mic-pulse{ 0%,100%{opacity:1;} 50%{opacity:0.6;} }
   .recording-indicator{
     display:none; align-items:center; gap:10px; padding:8px 18px; background:var(--danger-soft, #fbe4e1);
@@ -298,7 +299,7 @@
         <button type="button" class="chat-mic-btn" id="micBtn" onclick="toggleRecording()" title="Record a voice message">🎤</button>
         <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
       </div>
-      <div id="recordingIndicator" class="recording-indicator">● Recording… 0:00 <button type="button" onclick="cancelRecording()">Cancel</button></div>
+      <div id="recordingIndicator" class="recording-indicator"><span id="recordingIndicatorText">● Recording… 0:00</span> <button type="button" id="recordingIndicatorBtn" onclick="cancelRecording()">Cancel</button></div>
     </div>
   </div>
 
@@ -477,9 +478,33 @@
       const path = el.dataset.audioPath;
       try{
         const { data, error } = await sb.storage.from('voice-notes').createSignedUrl(path, 3600);
-        if(!error && data) el.src = data.signedUrl;
+        if(!error && data){
+          el.src = data.signedUrl;
+          fixAudioDuration(el);
+        }
       }catch(e){ console.error('Could not load voice message', e); }
     }
+  }
+
+  // Chrome bug: audio recorded via MediaRecorder often has no real duration
+  // baked into the file (shows as Infinity/NaN), which is why playback can
+  // look fine one time and stop partway or show 0:00/0:00 another — the
+  // player doesn't actually know where the file ends. Seeking near the end
+  // once forces it to properly parse the whole stream; after that, normal
+  // playback/duration/seeking all work correctly.
+  function fixAudioDuration(audioEl){
+    const onLoaded = () => {
+      if(audioEl.duration === Infinity || isNaN(audioEl.duration)){
+        audioEl.currentTime = 1e101;
+        const onTimeUpdate = () => {
+          audioEl.currentTime = 0;
+          audioEl.removeEventListener('timeupdate', onTimeUpdate);
+        };
+        audioEl.addEventListener('timeupdate', onTimeUpdate);
+      }
+      audioEl.removeEventListener('loadedmetadata', onLoaded);
+    };
+    audioEl.addEventListener('loadedmetadata', onLoaded);
   }
 
   function escapeHtml(str){
@@ -489,6 +514,12 @@
   }
 
   async function sendChatMessage(){
+    // If a voice note is recorded and waiting, Send sends that — not the (empty) textarea.
+    if(pendingVoiceBlob){
+      await uploadAndSendVoiceMessage(pendingVoiceBlob, pendingVoiceMimeType);
+      clearPendingVoice();
+      return;
+    }
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if(!text) return;
@@ -510,15 +541,21 @@
   let pollInterval = null;
 
   // ================= VOICE RECORDING =================
+  // Three states: idle -> recording -> ready-to-send (blob captured, waiting
+  // on the Send button) -> idle again (sent or discarded). The mic button
+  // only ever starts/stops recording — it never sends anything itself.
   let mediaRecorder = null;
   let audioChunks = [];
   let recordingStartTime = null;
   let recordingTimerInterval = null;
   let recordingCancelled = false;
+  let pendingVoiceBlob = null;
+  let pendingVoiceMimeType = null;
 
   async function toggleRecording(){
+    if(pendingVoiceBlob) return; // a recording is already waiting to be sent or discarded
     if(mediaRecorder && mediaRecorder.state === 'recording'){
-      stopRecording(false);
+      stopRecording();
     } else {
       startRecording();
     }
@@ -539,7 +576,11 @@
       recordingStartTime = Date.now();
       document.getElementById('micBtn').classList.add('recording');
       document.getElementById('micBtn').textContent = '⏹';
-      document.getElementById('recordingIndicator').classList.add('active');
+      const indicator = document.getElementById('recordingIndicator');
+      indicator.classList.add('active');
+      const btn = document.getElementById('recordingIndicatorBtn');
+      btn.textContent = 'Cancel';
+      btn.onclick = cancelRecording;
       updateRecordingTimer();
       recordingTimerInterval = setInterval(updateRecordingTimer, 500);
     }catch(e){
@@ -552,16 +593,11 @@
     const secs = Math.floor((Date.now() - recordingStartTime) / 1000);
     const m = Math.floor(secs / 60);
     const s = (secs % 60).toString().padStart(2, '0');
-    const indicator = document.getElementById('recordingIndicator');
-    indicator.firstChild.textContent = `● Recording… ${m}:${s} `;
+    document.getElementById('recordingIndicatorText').textContent = `● Recording… ${m}:${s}`;
   }
 
   function cancelRecording(){
     recordingCancelled = true;
-    stopRecording(true);
-  }
-
-  function stopRecording(){
     if(mediaRecorder && mediaRecorder.state === 'recording'){
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(t => t.stop());
@@ -572,12 +608,49 @@
     document.getElementById('recordingIndicator').classList.remove('active');
   }
 
-  async function onRecordingStop(){
-    if(recordingCancelled){ recordingCancelled = false; return; }
-    if(!audioChunks.length) return;
+  // Stops recording only — captures the clip and moves to "ready to send",
+  // it does NOT upload/send anything. That happens when Send is pressed.
+  function stopRecording(){
+    if(mediaRecorder && mediaRecorder.state === 'recording'){
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    clearInterval(recordingTimerInterval);
+    document.getElementById('micBtn').classList.remove('recording');
+    document.getElementById('micBtn').textContent = '🎤';
+  }
+
+  function onRecordingStop(){
+    if(recordingCancelled){
+      recordingCancelled = false;
+      document.getElementById('recordingIndicator').classList.remove('active');
+      return;
+    }
+    if(!audioChunks.length){
+      document.getElementById('recordingIndicator').classList.remove('active');
+      return;
+    }
     const mimeType = mediaRecorder.mimeType || 'audio/webm';
-    const blob = new Blob(audioChunks, { type: mimeType });
-    await uploadAndSendVoiceMessage(blob, mimeType);
+    pendingVoiceBlob = new Blob(audioChunks, { type: mimeType });
+    pendingVoiceMimeType = mimeType;
+
+    // Show the "ready to send" state — indicator stays visible, but now
+    // offers Discard instead of Cancel, and tells her to hit Send.
+    const secs = Math.floor((Date.now() - recordingStartTime) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = (secs % 60).toString().padStart(2, '0');
+    document.getElementById('recordingIndicatorText').textContent = `🎙 Voice message ready (${m}:${s}) — press Send`;
+    const btn = document.getElementById('recordingIndicatorBtn');
+    btn.textContent = 'Discard';
+    btn.onclick = clearPendingVoice;
+    document.getElementById('micBtn').disabled = true;
+  }
+
+  function clearPendingVoice(){
+    pendingVoiceBlob = null;
+    pendingVoiceMimeType = null;
+    document.getElementById('recordingIndicator').classList.remove('active');
+    document.getElementById('micBtn').disabled = false;
   }
 
   async function uploadAndSendVoiceMessage(blob, mimeType){

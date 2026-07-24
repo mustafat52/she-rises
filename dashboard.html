@@ -869,9 +869,33 @@
       const path = el.dataset.audioPath;
       try{
         const { data, error } = await sb.storage.from('voice-notes').createSignedUrl(path, 3600);
-        if(!error && data) el.src = data.signedUrl;
+        if(!error && data){
+          el.src = data.signedUrl;
+          fixAudioDuration(el);
+        }
       }catch(e){ console.error('Could not load voice message', e); }
     }
+  }
+
+  // Chrome bug: audio recorded via MediaRecorder often has no real duration
+  // baked into the file (shows as Infinity/NaN), which is why playback can
+  // look fine one time and stop partway or show 0:00/0:00 another — the
+  // player doesn't actually know where the file ends. Seeking near the end
+  // once forces it to properly parse the whole stream; after that, normal
+  // playback/duration/seeking all work correctly.
+  function fixAudioDuration(audioEl){
+    const onLoaded = () => {
+      if(audioEl.duration === Infinity || isNaN(audioEl.duration)){
+        audioEl.currentTime = 1e101;
+        const onTimeUpdate = () => {
+          audioEl.currentTime = 0;
+          audioEl.removeEventListener('timeupdate', onTimeUpdate);
+        };
+        audioEl.addEventListener('timeupdate', onTimeUpdate);
+      }
+      audioEl.removeEventListener('loadedmetadata', onLoaded);
+    };
+    audioEl.addEventListener('loadedmetadata', onLoaded);
   }
 
   function escapeConvHtml(str){
