@@ -958,3 +958,107 @@ begin
   return true;
 end;
 $$ language plpgsql security definer;
+-- ============================================================
+-- SEEKER PHONE + ESCALATION HANDOFF FORM (counsellors stop seeing the
+-- live chat entirely)
+-- ============================================================
+-- Counsellors were never meant to read the live seeker<->volunteer chat —
+-- once a case is escalated, all further contact happens outside this app
+-- (a call/WhatsApp), which is exactly why she needs the seeker's phone
+-- number. What she works from instead is a structured handoff: the
+-- intake details plus a one-time written summary the volunteer provides
+-- at the moment of escalation (`escalation_note`), never the ongoing
+-- message thread. Her own progress notes after that live in
+-- `case_updates`, same as the rest of the platform.
+
+alter table cases add column if not exists seeker_phone text;
+alter table cases add column if not exists escalation_note text;
+
+-- start_conversation gets a new p_phone parameter, right after p_gender.
+-- Changing the argument list creates an overload rather than replacing
+-- the function, so the previous 6-arg version must be dropped explicitly.
+drop function if exists start_conversation(text, text, text, text, text, text);
+
+create or replace function start_conversation(
+  p_name text,
+  p_gender text,
+  p_phone text,
+  p_location text,
+  p_its_number text,
+  p_problem_category text,
+  p_first_message text
+)
+returns table(out_access_code text, out_case_ref text) as $$
+declare
+  v_code text;
+  v_case_id uuid;
+  v_case_ref text;
+  v_assignee uuid;
+begin
+  select p.id into v_assignee
+  from profiles p
+  where p.role = 'volunteer' and p.is_active = true and p.is_away = false
+  order by (
+    select count(*) from cases c
+    where c.assigned_to = p.id and c.status not in ('resolved','closed')
+  ) asc
+  limit 1;
+
+  v_code := generate_access_code();
+  while exists (select 1 from cases where access_code = v_code) loop
+    v_code := generate_access_code();
+  end loop;
+
+  insert into cases (
+    alias, note, source, status, severity, assigned_to, access_code,
+    seeker_name, gender, seeker_phone, seeker_location, its_number, problem_category
+  )
+  values (
+    coalesce(p_name, 'Anonymous conversation'), p_first_message, 'chat', 'new', 'standard', v_assignee, v_code,
+    p_name, p_gender, p_phone, p_location, p_its_number, p_problem_category
+  )
+  returning id, case_ref into v_case_id, v_case_ref;
+
+  insert into case_messages (case_id, sender_type, body)
+  values (v_case_id, 'seeker', p_first_message);
+
+  return query select v_code, v_case_ref;
+end;
+$$ language plpgsql security definer;
+
+-- escalate_case_to_counsellor_queue now takes the volunteer's write-up —
+-- this text is what a counsellor actually sees, frozen at the moment of
+-- escalation, instead of the live chat.
+create or replace function escalate_case_to_counsellor_queue(p_case_id uuid, p_actor_id uuid, p_summary text)
+returns boolean as $$
+begin
+  update cases
+  set status = 'pending_counsellor',
+      consent_given_at = now(),
+      escalated_at = now(),
+      escalation_note = p_summary
+  where id = p_case_id
+    and status not in ('assigned','resolved','closed');
+
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- Counsellors no longer get any access to case_messages — replaces the
+-- two policies added earlier in this file. They work entirely from the
+-- escalation form (cases columns) and their own case_updates instead.
+drop policy if exists "counsellor reads messages on own case" on case_messages;
+drop policy if exists "counsellor sends messages on own case" on case_messages;
+
+-- The original case_updates policies only check assigned_to (the
+-- volunteer field) — a counsellor working a chat-sourced case (linked via
+-- assigned_counsellor instead) could never actually read or add her own
+-- progress notes without this.
+create policy "counsellor reads updates on own case" on case_updates
+  for select using (
+    exists (select 1 from cases c where c.id = case_updates.case_id and c.assigned_counsellor = auth.uid())
+  );
+create policy "counsellor adds updates on own case" on case_updates
+  for insert with check (
+    exists (select 1 from cases c where c.id = case_updates.case_id and c.assigned_counsellor = auth.uid())
+  );

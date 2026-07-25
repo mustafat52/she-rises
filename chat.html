@@ -242,6 +242,11 @@
         <input type="text" id="intakeLocation" placeholder="City, or 'online only'">
       </div>
       <div class="intake-row">
+        <label for="intakePhone">Phone number</label>
+        <input type="tel" id="intakePhone" placeholder="A number a counsellor can reach you on">
+        <div class="hint" style="font-size:0.78rem; color:var(--ink-soft); margin-top:5px;">Only shared with a counsellor if your case is ever passed on to one — never shown to anyone else.</div>
+      </div>
+      <div class="intake-row">
         <label for="intakeIts">ITS number</label>
         <input type="text" id="intakeIts" placeholder="Your ITS number">
       </div>
@@ -354,6 +359,7 @@
     const genderEl = document.querySelector('.gender-pill.selected');
     const gender = genderEl ? genderEl.dataset.value : '';
     const location = document.getElementById('intakeLocation').value.trim();
+    const phone = document.getElementById('intakePhone').value.trim();
     const its = document.getElementById('intakeIts').value.trim();
     const otherText = document.getElementById('intakeProblemOther').value.trim();
     const problem = Array.from(document.querySelectorAll('#problemPanel input[type=checkbox]:checked')).map(c=>{
@@ -361,11 +367,11 @@
       return c.value;
     }).join(', ');
     const text = document.getElementById('firstMessageInput').value.trim();
-    if(!name || !gender || !location || !its || !problem){ showToast('Please fill in all the fields above'); return; }
+    if(!name || !gender || !location || !phone || !its || !problem){ showToast('Please fill in all the fields above'); return; }
     if(!text){ showToast('Please write something first'); return; }
     try{
       const { data, error } = await sb.rpc('start_conversation', {
-        p_name: name, p_gender: gender, p_location: location, p_its_number: its,
+        p_name: name, p_gender: gender, p_phone: phone, p_location: location, p_its_number: its,
         p_problem_category: problem, p_first_message: text
       });
       if(error) throw error;

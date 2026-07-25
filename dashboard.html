@@ -437,6 +437,16 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script>
+  // The browser's back/forward cache (bfcache) can restore this page from
+  // an in-memory snapshot — including whichever role/DOM was rendered for
+  // the PREVIOUS person signed in on this device — without re-running any
+  // of the script below. A hard reload always re-fetches the real session
+  // fresh, so force one whenever we're shown from that snapshot.
+  window.addEventListener('pageshow', function(event){
+    if(event.persisted) window.location.reload();
+  });
+</script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -725,7 +735,7 @@
       // chat case; counsellors see only the open pending_counsellor queue plus
       // whatever's assigned to them — no client-side filtering needed.
       const { data, error } = await sb.from('cases')
-        .select('*, case_messages(id, sender_type, body, audio_path, created_at)')
+        .select('*, case_messages(id, sender_type, body, audio_path, created_at), case_updates(id, note, created_at, author_id)')
         .eq('source', 'chat')
         .order('updated_at', { ascending:false });
       if(error) throw error;
@@ -782,10 +792,16 @@
     const items = filteredConversations();
     if(!items.length){ list.innerHTML = '<div class="loading-row">Nothing here right now.</div>'; return; }
     list.innerHTML = items.map(c=>{
-      const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
-      const last = msgs[msgs.length-1];
-      const preview = last ? last.body : '(no messages yet)';
-      const time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
+      let preview, time;
+      if(currentUser.role==='counsellor'){
+        preview = c.problem_category || c.escalation_note || '(no summary yet)';
+        time = c.escalated_at ? timeAgo(new Date(c.escalated_at).getTime()) : '';
+      } else {
+        const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+        const last = msgs[msgs.length-1];
+        preview = last ? last.body : '(no messages yet)';
+        time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
+      }
       const isUnclaimed = isUnclaimed24h(c);
       return `<div class="conv-item ${c.id===activeConvCaseId?'active':''}" onclick="selectConversation('${c.id}')">
         <div class="conv-item-top">
@@ -811,6 +827,10 @@
   }
 
   function renderConversationThread(c){
+    if(currentUser.role === 'counsellor'){
+      renderCounsellorCaseForm(c);
+      return;
+    }
     const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
     const isOwnerSide = currentUser.role==='volunteer' || currentUser.role==='super_volunteer' || currentUser.role==='admin';
     // "View but not participate": once a case is transferred, only the current
@@ -858,6 +878,92 @@
     const msgBox = document.getElementById('convMessages');
     if(msgBox) msgBox.scrollTop = msgBox.scrollHeight;
     if(msgBox) loadVoiceMessageUrls(msgBox);
+  }
+
+  // ---------- counsellor's view: a handoff form, never the live chat ----------
+  // She only ever sees: the intake details captured when the seeker started
+  // the conversation, the volunteer's one-time written summary from the
+  // moment of escalation (escalation_note), and — once she's taken the
+  // case — her own case_updates timeline. The seeker<->volunteer message
+  // thread itself is never fetched or shown to her (also enforced at the
+  // RLS level in schema.sql, this is defense in depth in the UI too).
+  function renderCounsellorCaseForm(c){
+    const isMyCase = c.assigned_counsellor === currentUser.id;
+    const statusLabel = STATUS_LABELS[c.status] || c.status;
+    const updates = (c.case_updates||[]).slice().sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
+
+    document.getElementById('convThread').innerHTML = `
+      <div class="conv-thread-head">
+        <button type="button" class="mobile-back-btn" onclick="closeThread()" style="border:none; background:none; color:var(--rose-deep); font-weight:700; font-size:0.9rem; padding:0 0 10px; cursor:pointer; align-items:center; gap:6px;">← Back to conversations</button>
+      </div>
+      <div style="padding:0 20px 20px; overflow-y:auto;">
+        <div class="app-card">
+          <div class="app-top">
+            <div>
+              <div class="app-name">${escapeConvHtml(c.seeker_name || c.alias || 'Anonymous')}</div>
+              <div class="app-meta">${c.case_ref} · escalated ${c.escalated_at ? timeAgo(new Date(c.escalated_at).getTime()) : '—'}</div>
+            </div>
+            <span class="app-status-badge ${c.severity==='crisis' ? 'rejected' : (isMyCase ? 'approved' : 'pending')}">${statusLabel}</span>
+          </div>
+          <dl class="app-grid">
+            <div><dt>Gender</dt><dd>${escapeConvHtml(c.gender || '—')}</dd></div>
+            <div><dt>Phone</dt><dd>${isMyCase ? (c.seeker_phone ? `<a href="tel:${escapeConvHtml(c.seeker_phone)}" style="color:var(--rose-deep); font-weight:700;">${escapeConvHtml(c.seeker_phone)}</a>` : '—') : 'Visible once you take this case'}</dd></div>
+            <div><dt>Location</dt><dd>${escapeConvHtml(c.seeker_location || '—')}</dd></div>
+            <div><dt>ITS number</dt><dd>${escapeConvHtml(c.its_number || '—')}</dd></div>
+            <div><dt>Problem</dt><dd>${escapeConvHtml(c.problem_category || '—')}</dd></div>
+            <div><dt>Severity</dt><dd style="text-transform:capitalize;">${escapeConvHtml(c.severity || '—')}</dd></div>
+          </dl>
+          ${(c.tags||[]).length ? `<div class="app-tags">${c.tags.map(t=>`<span class="tag-pill">${escapeConvHtml(t)}</span>`).join('')}</div>` : ''}
+          <div class="app-statement">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; color:var(--gold); margin-bottom:4px;">What the volunteer shared</div>
+            ${escapeConvHtml(c.escalation_note || 'No summary was written.')}
+          </div>
+          <div class="app-actions">
+            ${renderThreadActions(c, false, isMyCase)}
+            ${isMyCase && (c.status==='assigned' || c.status==='in_progress') ? `<button class="act-btn" onclick="openCounsellorUpdateModal('${c.id}')">Add Update</button>` : ''}
+          </div>
+        </div>
+        ${isMyCase ? `
+        <div style="margin-top:18px;">
+          <h3 style="font-size:1rem; margin-bottom:10px; color:var(--rose-deep);">Your progress notes</h3>
+          ${updates.length ? updates.map(u=>`
+            <div class="app-card" style="margin-bottom:10px; padding:16px 18px;">
+              <div class="app-meta" style="margin-bottom:6px;">${timeAgo(new Date(u.created_at).getTime())}</div>
+              <div>${escapeConvHtml(u.note)}</div>
+            </div>
+          `).join('') : '<div class="empty-state">No notes added yet.</div>'}
+        </div>` : ''}
+      </div>
+    `;
+  }
+
+  function openCounsellorUpdateModal(caseId){
+    editingCaseId = caseId;
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Add a progress note</h2>
+      <p class="sub">Visible only to you and admins — this is your own record, not shared with the seeker.</p>
+      <div class="field"><label>Note</label><textarea id="f_counsellor_update" placeholder="What happened in this session/contact?"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveCounsellorUpdate()">Save Note</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  async function saveCounsellorUpdate(){
+    const text = document.getElementById('f_counsellor_update').value.trim();
+    if(!text){ showToast('Please add a note first'); return; }
+    try{
+      const { error } = await sb.from('case_updates').insert({ case_id: editingCaseId, author_id: currentUser.id, note: text });
+      if(error) throw error;
+      // No-op if it's already past 'assigned' — harmless either way.
+      await sb.from('cases').update({ status:'in_progress' }).eq('id', editingCaseId).eq('status', 'assigned');
+    }catch(e){
+      console.error(e); showToast('Could not save note: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    showToast('Note saved');
+    await loadConversations();
   }
 
   // Bucket is private, so playback needs a signed URL rather than a plain
@@ -932,7 +1038,7 @@
     if(currentUser.role==='counsellor'){
       if(c.status === 'pending_counsellor'){
         btns.push(`<button class="act-btn primary" onclick="claimCase('${c.id}')">Take This Case</button>`);
-      } else if(isMyCounsellorCase && c.status==='assigned'){
+      } else if(isMyCounsellorCase && (c.status==='assigned' || c.status==='in_progress')){
         btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','counsellor')">Close Case</button>`);
       }
     }
@@ -1010,13 +1116,23 @@
     await loadConversations();
   }
 
-  // ---------- escalate: volunteer confirms consent, moves case into the queue ----------
+  // ---------- escalate: volunteer confirms consent, fills the handoff form ----------
+  // A counsellor never sees this chat — only this form, frozen at the
+  // moment of escalation. So this is where the volunteer confirms the
+  // intake details are right and writes the summary a counsellor will
+  // actually act on.
   function openEscalateModal(caseId){
     editingCaseId = caseId;
+    const c = conversations.find(x=>x.id===caseId) || {};
     document.getElementById('modalContent').innerHTML = `
       <h2>Escalate to a counsellor</h2>
-      <p class="sub">Only do this after she's agreed to be connected with a counsellor. Once confirmed, this case is listed for any counsellor to request.</p>
-      <div class="field" style="margin-top:10px;">
+      <p class="sub">Only do this after she's agreed to be connected with a counsellor. A counsellor will see this form — not the chat itself — so make sure it's accurate before you send it.</p>
+      <div class="field"><label>Name</label><input id="f_esc_name" value="${escapeConvHtml(c.seeker_name || '')}"></div>
+      <div class="field"><label>Phone</label><input id="f_esc_phone" value="${escapeConvHtml(c.seeker_phone || '')}" placeholder="For the counsellor to reach her directly"></div>
+      <div class="field"><label>Location</label><input id="f_esc_location" value="${escapeConvHtml(c.seeker_location || '')}"></div>
+      <div class="field"><label>Problem</label><input id="f_esc_problem" value="${escapeConvHtml(c.problem_category || '')}"></div>
+      <div class="field"><label>Summary for the counsellor</label><textarea id="f_esc_summary" rows="4" placeholder="What's going on, in your own words — this is what she'll read instead of the chat.">${escapeConvHtml(c.escalation_note || '')}</textarea></div>
+      <div class="field" style="margin-top:6px;">
         <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400;">
           <input type="checkbox" id="f_consent" style="margin-top:3px;">
           <span>I asked her, and she's given consent to be connected with a counsellor.</span>
@@ -1031,8 +1147,17 @@
 
   async function saveEscalation(){
     if(!document.getElementById('f_consent').checked){ showToast('Please confirm she has given consent'); return; }
+    const summary = document.getElementById('f_esc_summary').value.trim();
+    if(!summary){ showToast('Please write a short summary — this is what the counsellor will see'); return; }
     try{
-      const { data, error } = await sb.rpc('escalate_case_to_counsellor_queue', { p_case_id: editingCaseId, p_actor_id: currentUser.id });
+      const { error: updErr } = await sb.from('cases').update({
+        seeker_name: document.getElementById('f_esc_name').value.trim() || null,
+        seeker_phone: document.getElementById('f_esc_phone').value.trim() || null,
+        seeker_location: document.getElementById('f_esc_location').value.trim() || null,
+        problem_category: document.getElementById('f_esc_problem').value.trim() || null,
+      }).eq('id', editingCaseId);
+      if(updErr) throw updErr;
+      const { data, error } = await sb.rpc('escalate_case_to_counsellor_queue', { p_case_id: editingCaseId, p_actor_id: currentUser.id, p_summary: summary });
       if(error) throw error;
       if(data === false){ showToast('Could not escalate — case may already be assigned or closed'); return; }
     }catch(e){
@@ -1131,6 +1256,8 @@
   let activeTeamFilter = 'All';
   const SPECIALTY_TAGS = ALL_TAGS.filter(t => t !== 'General Support').concat(['General Support']); // same taxonomy, reused
 
+  let applicantIdsWithPendingApplication = new Set();
+
   async function loadAdminOverviewData(){
     try{
       const { data, error } = await sb.from('profiles').select('*').order('created_at', { ascending:false });
@@ -1140,6 +1267,19 @@
       console.error('Could not load team data', e);
       showToast('Could not load team data');
       allProfiles = [];
+    }
+    try{
+      // Anyone applying via /apply-counsellor also gets a throwaway
+      // 'pending volunteer' profile row created automatically on signup
+      // (see handle_new_user() in schema.sql) — that's an implementation
+      // detail, not a real volunteer signup, so she should only show up
+      // in Counsellor Applications, not here too.
+      const { data, error } = await sb.from('counsellor_applications').select('applicant_id').eq('status','pending');
+      if(error) throw error;
+      applicantIdsWithPendingApplication = new Set((data||[]).map(a=>a.applicant_id));
+    }catch(e){
+      console.error('Could not load pending counsellor applications', e);
+      applicantIdsWithPendingApplication = new Set();
     }
     renderOverview();
     renderPending();
@@ -1200,13 +1340,17 @@
   }
 
   function renderPending(){
-    const pending = allProfiles.filter(p=>!p.is_active);
+    const pending = allProfiles.filter(p=>!p.is_active && !applicantIdsWithPendingApplication.has(p.id));
+    const skippedForApplication = allProfiles.filter(p=>!p.is_active && applicantIdsWithPendingApplication.has(p.id)).length;
     const badge = document.getElementById('count-pending');
     if(badge) badge.textContent = pending.length;
     const list = document.getElementById('pendingList');
     if(!list) return;
-    if(!pending.length){ list.innerHTML = '<div class="empty-state">No one is waiting for approval right now.</div>'; return; }
-    list.innerHTML = pending.map(p=>`
+    const applicationNote = skippedForApplication
+      ? `<div class="empty-state" style="margin-bottom:14px;">${skippedForApplication} ${skippedForApplication===1?'person is':'people are'} also waiting as counsellor applicant${skippedForApplication===1?'':'s'} — see the <strong>Counsellor Applications</strong> tab for those.</div>`
+      : '';
+    if(!pending.length){ list.innerHTML = applicationNote + '<div class="empty-state">No one else is waiting for approval right now.</div>'; return; }
+    list.innerHTML = applicationNote + pending.map(p=>`
       <div class="person-card">
         <div class="person-info">
           <div class="pname">${p.full_name}</div>
