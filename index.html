@@ -8,26 +8,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ivory:#FBF3EC;
-    --ivory-deep:#F2E4D6;
-    --rose-deep:#742842;
-    --rose-deep-dark:#511C30;
-    --rose-soft:#E3A9BE;
-    --rose-soft-t:#E3A9BEaa;
-    --gold:#B8862E;
-    --gold-line:#C08A34;
-    --gold-soft:#E3C68C;
-    --ink:#2A2220;
-    --ink-soft:#5A4C46;
-    --teal:#3F6B5E;
-    --teal-soft:#DCE9E4;
+    --ivory:#FFFCF7;
+    --ivory-deep:#FFE0F0;
+    --rose-deep:#C40057;
+    --rose-deep-dark:#8F0040;
+    --rose-soft:#FF71B9;
+    --rose-soft-t:#FF71B9aa;
+    --gold:#0C6A7A;
+    --gold-line:#21D3EB;
+    --gold-soft:#B9EFF5;
+    --ink:#130020;
+    --ink-soft:#582D76;
+    --teal:#C40057;
+    --teal-soft:#FFE0F0;
     --shadow: 0 18px 40px -22px rgba(42,34,32,0.35);
     --arch: path('M0,120 C0,50 20,0 60,0 C100,0 120,50 120,120 Z');
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html{scroll-behavior:smooth;}
   body{
-    background:var(--ivory);
+    background:var(--ivory-deep);
     color:var(--ink);
     font-family:'Karla', sans-serif;
     line-height:1.6;
@@ -49,7 +49,7 @@
   }
   a{color:inherit; text-decoration:none;}
   button{font-family:inherit; cursor:pointer; border:none; background:none;}
-  :focus-visible{outline:2.5px solid var(--teal); outline-offset:3px; border-radius:4px;}
+  :focus-visible{outline:2.5px solid var(--gold-line); outline-offset:3px; border-radius:4px;}
   img{max-width:100%; display:block;}
 
   /* ---------- Arch motif (signature element) ---------- */
@@ -68,9 +68,9 @@
   /* ---------- Layout shell ---------- */
   header{
     position:sticky; top:0; z-index:50;
-    background:rgba(251,243,236,0.92);
+    background:rgba(255,224,240,0.92);
     backdrop-filter:blur(10px);
-    border-bottom:1px solid rgba(116,40,66,0.12);
+    border-bottom:1px solid rgba(196,0,87,0.12);
   }
   .nav-wrap{
     max-width:1180px; margin:0 auto; padding:16px 28px;
@@ -91,7 +91,7 @@
     background:var(--teal); color:var(--ivory); padding:10px 18px; border-radius:99px;
     font-weight:700; font-size:0.88rem; white-space:nowrap; transition:transform .2s, background .2s;
   }
-  .nav-cta:hover{background:#33564b; transform:translateY(-1px);}
+  .nav-cta:hover{background:#8F0040; transform:translateY(-1px);}
   .mobile-toggle{display:none; font-size:1.5rem; color:var(--rose-deep);}
 
   main{max-width:1180px; margin:0 auto; padding:0 28px;}
@@ -133,12 +133,12 @@
     position:relative; aspect-ratio:300/340; max-width:340px; margin:0 auto;
   }
   .hero-visual .arch-frame{
-    width:100%; height:100%; background:linear-gradient(165deg, var(--rose-deep) 0%, var(--gold) 100%);
+    width:100%; height:100%; background:linear-gradient(165deg, var(--rose-deep) 0%, var(--rose-soft) 100%);
     display:flex; align-items:flex-end; justify-content:center; overflow:hidden; position:relative;
   }
   .hero-visual .arch-frame::before{
     content:''; position:absolute; inset:0; opacity:0.14; pointer-events:none;
-    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><path d="M25,0 L50,25 L25,50 L0,25 Z" fill="none" stroke="%23FBF3EC" stroke-width="1"/></svg>');
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><path d="M25,0 L50,25 L25,50 L0,25 Z" fill="none" stroke="%23FFFCF7" stroke-width="1"/></svg>');
     background-size:50px 50px;
   }
   .hero-visual svg.motif{width:58%; opacity:0.95; position:relative; z-index:1; margin-bottom:8%;}
@@ -149,7 +149,7 @@
   .jaali-bg{position:relative;}
   .jaali-bg::before{
     content:''; position:absolute; inset:0; opacity:0.06; pointer-events:none; z-index:0;
-    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23742842" stroke-width="1"/><circle cx="30" cy="30" r="9" fill="none" stroke="%23742842" stroke-width="1"/></svg>');
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23C40057" stroke-width="1"/><circle cx="30" cy="30" r="9" fill="none" stroke="%23C40057" stroke-width="1"/></svg>');
     background-size:60px 60px;
   }
   .muqarnas-divider{width:100%; height:24px; display:block; margin:6px 0;}
@@ -157,7 +157,7 @@
   /* ---------- Section generic ---------- */
   section{padding:70px 0;}
   section.tinted{
-    background:var(--ivory-deep); border-radius:6px; margin:0 -8px;
+    background:var(--ivory); border-radius:6px; margin:0 -8px;
   }
   .section-head{max-width:640px; margin-bottom:46px;}
   .section-head h2{font-size:clamp(1.7rem, 2.6vw, 2.3rem); margin-top:10px;}
@@ -167,7 +167,7 @@
   .pillars{display:grid; grid-template-columns:repeat(3, 1fr); gap:26px;}
   .pillar-card{
     background:var(--ivory); border-radius:6px 6px 22px 22px; padding:34px 26px 30px; position:relative;
-    box-shadow:0 1px 0 rgba(116,40,66,0.06); border:1px solid rgba(116,40,66,0.10); border-top:3px solid var(--gold-line);
+    box-shadow:0 1px 0 rgba(196,0,87,0.06); border:1px solid rgba(196,0,87,0.10); border-top:3px solid var(--gold-line);
     transition:transform .25s, box-shadow .25s;
   }
   .pillar-card:hover{transform:translateY(-4px); box-shadow:var(--shadow);}
@@ -196,7 +196,7 @@
   /* voices preview cards */
   .voice-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px;}
   .voice-card{
-    background:var(--ivory); border-radius:6px; overflow:hidden; border:1px solid rgba(116,40,66,0.10);
+    background:var(--ivory); border-radius:6px; overflow:hidden; border:1px solid rgba(196,0,87,0.10);
     transition:transform .25s, box-shadow .25s; display:flex; flex-direction:column;
   }
   .voice-card:hover{transform:translateY(-4px); box-shadow:var(--shadow);}
@@ -222,12 +222,12 @@
   }
   .resource-strip::before{
     content:''; position:absolute; inset:0; opacity:0.07; pointer-events:none;
-    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FBF3EC" stroke-width="1"/></svg>');
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FFFCF7" stroke-width="1"/></svg>');
     background-size:60px 60px;
   }
   .resource-strip h3, .resource-strip p, .resource-strip .btn-primary{position:relative;}
   .resource-strip h3{color:var(--ivory); font-size:1.15rem; margin-bottom:6px;}
-  .resource-strip p{color:#DCEAE5; font-size:0.92rem; max-width:52ch;}
+  .resource-strip p{color:#FFD9EC; font-size:0.92rem; max-width:52ch;}
   .resource-strip .btn-primary{background:var(--ivory); color:var(--teal); box-shadow:none;}
   .resource-strip .btn-primary:hover{background:#fff;}
 
@@ -238,18 +238,18 @@
   }
   .contribute-banner::before{
     content:''; position:absolute; inset:0; opacity:0.08; pointer-events:none;
-    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FBF3EC" stroke-width="1"/></svg>');
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FFFCF7" stroke-width="1"/></svg>');
     background-size:60px 60px;
   }
   .contribute-banner-text{position:relative; max-width:52ch;}
   .contribute-banner .eyebrow{color:var(--gold-soft);}
   .contribute-banner h2{font-family:'Fraunces',serif; font-size:clamp(1.7rem, 3vw, 2.4rem); line-height:1.15; margin-bottom:12px; color:var(--ivory);}
-  .contribute-banner p{color:var(--rose-soft); font-size:1rem;}
-  .contribute-banner .btn-primary{position:relative; background:var(--gold); color:var(--rose-deep-dark); box-shadow:none; font-size:1.02rem; padding:16px 30px; flex-shrink:0;}
-  .contribute-banner .btn-primary:hover{background:var(--gold-soft);}
+  .contribute-banner p{color:var(--ivory); opacity:0.92; font-size:1rem;}
+  .contribute-banner .btn-primary{position:relative; background:var(--ivory); color:var(--rose-deep); box-shadow:none; font-size:1.02rem; padding:16px 30px; flex-shrink:0;}
+  .contribute-banner .btn-primary:hover{background:var(--ivory-deep);}
   @media(max-width:700px){ .contribute-banner{padding:34px 26px; text-align:center; justify-content:center;} .contribute-banner-text{max-width:100%;} }
 
-  footer{border-top:1px solid rgba(116,40,66,0.12); margin-top:60px; padding:40px 0 50px;}
+  footer{border-top:1px solid rgba(196,0,87,0.12); margin-top:60px; padding:40px 0 50px;}
   .footer-wrap{max-width:1180px; margin:0 auto; padding:0 28px; display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; align-items:flex-start; box-sizing:border-box;}
   .footer-brand p{color:var(--ink-soft); font-size:0.88rem; max-width:34ch; margin-top:8px;}
   .footer-links{display:flex; gap:40px; flex-wrap:wrap;}
@@ -267,7 +267,7 @@
   .filter-row{display:flex; gap:10px; flex-wrap:wrap; margin:34px 0 40px;}
   .filter-chip{
     font-family:'IBM Plex Mono', monospace; font-size:0.76rem; letter-spacing:0.04em;
-    padding:9px 16px; border-radius:99px; border:1.5px solid rgba(116,40,66,0.25); color:var(--ink-soft);
+    padding:9px 16px; border-radius:99px; border:1.5px solid rgba(196,0,87,0.25); color:var(--ink-soft);
     transition:all .2s;
   }
   .filter-chip:hover{border-color:var(--rose-deep); color:var(--rose-deep);}
@@ -309,7 +309,7 @@
   .support-note{font-size:0.8rem; color:var(--ink-soft); margin-top:18px; opacity:0.85;}
 
   .process-steps{display:flex; flex-direction:column; gap:0; margin-top:50px;}
-  .process-step{display:flex; gap:20px; padding:22px 0; border-bottom:1px solid rgba(116,40,66,0.1);}
+  .process-step{display:flex; gap:20px; padding:22px 0; border-bottom:1px solid rgba(196,0,87,0.1);}
   .process-step:last-child{border-bottom:none;}
   .process-num{
     font-family:'Fraunces',serif; font-size:1.3rem; color:var(--gold); font-weight:600;
@@ -324,19 +324,19 @@
     background:var(--rose-deep); color:var(--ivory); border-radius:8px; padding:28px 30px; margin:34px 0 50px;
     display:flex; gap:18px; align-items:flex-start;
   }
-  .crisis-banner p{color:#F4DEE4; font-size:0.92rem;}
+  .crisis-banner p{color:#FFD9EC; font-size:0.92rem;}
   .crisis-banner h3{color:var(--ivory); margin-bottom:8px; font-size:1.08rem;}
   .helpline-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:16px;}
   .helpline{background:rgba(255,255,255,0.1); border-radius:14px; padding:14px 16px;}
   .helpline .num{font-family:'IBM Plex Mono',monospace; font-size:1rem; font-weight:600;}
-  .helpline .lbl{font-size:0.78rem; color:#F4DEE4; margin-top:2px;}
+  .helpline .lbl{font-size:0.78rem; color:#FFD9EC; margin-top:2px;}
 
   .resource-cat{margin-bottom:50px;}
   .resource-cat h3{font-size:1.15rem; margin-bottom:16px; display:flex; align-items:center; gap:10px;}
   .resource-cat-dot{width:10px; height:10px; border-radius:3px; background:var(--gold);}
   .resource-items{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
   .resource-item{
-    padding:18px 20px; border:1px solid rgba(116,40,66,0.12); border-radius:6px;
+    padding:18px 20px; border:1px solid rgba(196,0,87,0.12); border-radius:6px;
     display:flex; justify-content:space-between; align-items:center; gap:12px;
   }
   .resource-item h4{font-size:0.96rem; color:var(--ink); margin-bottom:3px;}
@@ -346,15 +346,15 @@
   .filter-group{margin-bottom:22px;}
   .filter-group-label{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); margin-bottom:10px; font-weight:600;}
   .counsellor-note{
-    background:var(--teal-soft); border-radius:16px; padding:16px 20px; font-size:0.88rem; color:#2A4A40;
+    background:var(--teal-soft); border-radius:16px; padding:16px 20px; font-size:0.88rem; color:#582D76;
     margin:8px 0 40px; display:flex; gap:12px; align-items:flex-start;
   }
   .coming-soon-card{
-    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 26px 26px;
+    background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:6px 6px 26px 26px;
     border-top:3px solid var(--gold-line); padding:40px 38px; max-width:640px; margin:0 auto 80px;
   }
   .coming-soon-badge{
-    display:inline-block; background:var(--gold-soft); color:var(--rose-deep-dark); font-family:'IBM Plex Mono',monospace;
+    display:inline-block; background:var(--gold-soft); color:var(--gold); font-family:'IBM Plex Mono',monospace;
     font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:5px 14px; border-radius:99px; margin-bottom:16px;
   }
   .coming-soon-card h2{font-size:1.3rem; margin-bottom:16px;}
@@ -363,14 +363,14 @@
   .coming-soon-list li::before{content:'✦'; position:absolute; left:0; top:1px; color:var(--gold);}
   .counsellor-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:22px; padding-bottom:80px;}
   .counsellor-card{
-    background:#fff; border:1px solid rgba(116,40,66,0.1); border-radius:6px 6px 22px 22px; padding:26px; border-top:3px solid var(--gold-line);
+    background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:6px 6px 22px 22px; padding:26px; border-top:3px solid var(--gold-line);
     display:flex; flex-direction:column; transition:transform .25s, box-shadow .25s;
   }
   .counsellor-card:hover{transform:translateY(-4px); box-shadow:var(--shadow);}
   .counsellor-top{display:flex; gap:16px; align-items:center; margin-bottom:16px;}
   .avatar-circle{
     width:56px; height:56px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(150deg, var(--rose-soft), var(--gold-soft)); font-family:'Fraunces',serif; font-weight:600;
+    background:linear-gradient(150deg, var(--rose-soft), var(--ivory-deep)); font-family:'Fraunces',serif; font-weight:600;
     color:var(--rose-deep-dark); font-size:1.2rem; border:1.5px solid var(--gold);
   }
   .counsellor-name{font-weight:700; font-size:1.02rem; color:var(--ink);}
@@ -390,11 +390,11 @@
   .about-hero{padding:56px 0 40px; display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:center;}
   .about-hero h1{font-size:clamp(2rem,3.4vw,2.8rem); margin-bottom:20px;}
   .about-hero p{color:var(--ink-soft); font-size:1.03rem; margin-bottom:16px;}
-  .about-motif{aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--rose-soft), var(--gold-soft) 85%); display:flex; align-items:center; justify-content:center; max-width:320px; margin:0 auto; border:2px solid var(--gold);}
+  .about-motif{aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--rose-soft), var(--ivory-deep) 85%); display:flex; align-items:center; justify-content:center; max-width:320px; margin:0 auto; border:2px solid var(--rose-soft);}
   .about-motif svg{width:56%;}
 
   .values-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:20px; padding:20px 0 70px;}
-  .value-block{padding:26px; border-radius:6px 6px 18px 18px; background:var(--ivory-deep); border-top:3px solid var(--gold-line);}
+  .value-block{padding:26px; border-radius:6px 6px 18px 18px; background:var(--ivory); border-top:3px solid var(--gold-line);}
   .value-block h4{font-size:1.02rem; margin-bottom:8px; color:var(--rose-deep);}
   .value-block p{font-size:0.92rem; color:var(--ink-soft);}
 
@@ -458,8 +458,8 @@
         <div class="hero-visual-ring"></div>
         <div class="arch-frame">
           <svg class="motif" viewBox="0 0 100 100" fill="none">
-            <path d="M50 78 C34 65 22 50 22 34 C22 24 30 18 38 21 C43.5 23 47 28 50 33 C53 28 56.5 23 62 21 C70 18 78 24 78 34 C78 50 66 65 50 78 Z" fill="#FBF3EC" opacity="0.95"/>
-            <path d="M50 22 C56 10 70 6 78 14" stroke="#FBF3EC" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.8"/>
+            <path d="M50 78 C34 65 22 50 22 34 C22 24 30 18 38 21 C43.5 23 47 28 50 33 C53 28 56.5 23 62 21 C70 18 78 24 78 34 C78 50 66 65 50 78 Z" fill="#FFFCF7" opacity="0.95"/>
+            <path d="M50 22 C56 10 70 6 78 14" stroke="#FFFCF7" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.8"/>
           </svg>
         </div>
       </div>
@@ -473,17 +473,17 @@
       </div>
       <div class="pillars">
         <div class="pillar-card reveal">
-          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.8 1.3 4.5 2.4L12 8l1.5-1.6C14.2 5.3 15.8 4 18 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9Z" stroke="#7C2D42" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.8 1.3 4.5 2.4L12 8l1.5-1.6C14.2 5.3 15.8 4 18 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9Z" stroke="#FFFCF7" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
           <h3>Privacy, always</h3>
           <p>What you share stays between you and the person supporting you. No case is discussed outside that thread.</p>
         </div>
         <div class="pillar-card reveal">
-          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 8l7-5 7 5M5 8v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V8" stroke="#7C2D42" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 8l7-5 7 5M5 8v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V8" stroke="#FFFCF7" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
           <h3>Rooted in community</h3>
           <p>We understand the faith, the family expectations, and the culture — support here doesn't ask you to leave that behind.</p>
         </div>
         <div class="pillar-card reveal">
-          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12c2-4 5-6 8-6s6 2 8 6c-2 4-5 6-8 6s-6-2-8-6Z" stroke="#7C2D42" stroke-width="1.6"/><circle cx="12" cy="12" r="2.4" stroke="#7C2D42" stroke-width="1.6"/></svg></div>
+          <div class="pillar-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12c2-4 5-6 8-6s6 2 8 6c-2 4-5 6-8 6s-6-2-8-6Z" stroke="#FFFCF7" stroke-width="1.6"/><circle cx="12" cy="12" r="2.4" stroke="#FFFCF7" stroke-width="1.6"/></svg></div>
           <h3>Real support, not just listening</h3>
           <p>Every conversation is guided to the right person — a trained volunteer first, and a counsellor when it's needed.</p>
         </div>
@@ -493,7 +493,7 @@
     <svg class="muqarnas-divider" viewBox="0 0 400 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="muqHome" width="40" height="24" patternUnits="userSpaceOnUse">
-          <path d="M0,24 L0,16 L8,16 L8,9 L16,9 L16,3 L24,3 L24,9 L32,9 L32,16 L40,16 L40,24" fill="none" stroke="#B8862E" stroke-width="1.3"/>
+          <path d="M0,24 L0,16 L8,16 L8,9 L16,9 L16,3 L24,3 L24,9 L32,9 L32,16 L40,16 L40,24" fill="none" stroke="#21D3EB" stroke-width="1.3"/>
         </pattern>
       </defs>
       <rect width="400" height="24" fill="url(#muqHome)"/>
@@ -595,7 +595,7 @@
         <h3>Open Up Here</h3>
         <p>No form, no account — just start typing. A volunteer typically responds personally.</p>
         <a class="whatsapp-btn" href="/chat">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 4a11 11 0 0 0-17 13.3L2 22l4.9-1a11 11 0 0 0 13.1-17Z" stroke="#FBF3EC" stroke-width="1.6"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 4a11 11 0 0 0-17 13.3L2 22l4.9-1a11 11 0 0 0 13.1-17Z" stroke="#FFFCF7" stroke-width="1.6"/></svg>
           Start a Conversation
         </a>
         <p class="support-note">If this is a life-threatening emergency, please contact local emergency services or a crisis line immediately — see Resources.</p>
@@ -637,7 +637,7 @@
     </div>
 
     <div class="counsellor-note reveal">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:1px;"><path d="M12 8v5M12 16h.01M12 3l9 16H3L12 3Z" stroke="#2A4A40" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:1px;"><path d="M12 8v5M12 16h.01M12 3l9 16H3L12 3Z" stroke="#582D76" stroke-width="1.6" stroke-linejoin="round"/></svg>
       <div>Browsing here doesn't message anyone directly — it just helps you (and our volunteer) know who might be the right fit before you reach out.</div>
     </div>
 
@@ -662,7 +662,7 @@
     </div>
 
     <div class="crisis-banner reveal">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:2px;"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="#FBF3EC" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:2px;"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="#FFFCF7" stroke-width="1.6" stroke-linejoin="round"/></svg>
       <div style="flex:1;">
         <h3>If you're in immediate danger or thinking of harming yourself</h3>
         <p>Please reach out to one of these right away — they're free, confidential, and available now.</p>
@@ -735,8 +735,8 @@
       </div>
       <div class="about-motif reveal">
         <svg viewBox="0 0 100 100" fill="none">
-          <path d="M50 82 C30 66 16 48 16 30 C16 18 26 10 36 13.5 C43 16 47 22 50 28 C53 22 57 16 64 13.5 C74 10 84 18 84 30 C84 48 70 66 50 82 Z" fill="#7C2D42"/>
-          <path d="M50 26 C58 12 76 7 86 17" stroke="#7C2D42" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <path d="M50 82 C30 66 16 48 16 30 C16 18 26 10 36 13.5 C43 16 47 22 50 28 C53 22 57 16 64 13.5 C74 10 84 18 84 30 C84 48 70 66 50 82 Z" fill="#C40057"/>
+          <path d="M50 26 C58 12 76 7 86 17" stroke="#C40057" stroke-width="2.4" fill="none" stroke-linecap="round"/>
         </svg>
       </div>
     </div>
@@ -808,12 +808,12 @@
 
   function seedMedia(){
     return [
-      {type:'Podcast', tag:'Motherhood', title:'Becoming a mother, without losing yourself', teaser:'Two Bohra mothers talk candidly about identity, exhaustion, and joy after having children.', url:'#', grad:['#E3A9BE','#E3C68C']},
-      {type:'Article', tag:'Mental Health', title:'What anxiety actually feels like — in our own words', teaser:'A reader-submitted piece describing the physical and emotional weight of anxiety.', url:'#', grad:['#DCE9E4','#E3A9BE']},
-      {type:'Podcast', tag:'Marriage', title:"When the rishta doesn't match the reality", teaser:'A frank conversation on expectation versus experience in early marriage.', url:'#', grad:['#E3C68C','#742842']},
-      {type:'Article', tag:'Faith & Healing', title:'Finding comfort in dua during hard seasons', teaser:'How prayer and professional support can coexist, not compete.', url:'#', grad:['#E3A9BE','#DCE9E4']},
-      {type:'Podcast', tag:'Grief', title:'Grieving a parent while holding a family together', teaser:'On loss, duty, and giving yourself permission to fall apart sometimes.', url:'#', grad:['#DCE9E4','#E3C68C']},
-      {type:'Article', tag:'Domestic Life', title:'Setting boundaries without guilt', teaser:'Practical language for saying no within close-knit family structures.', url:'#', grad:['#E3C68C','#E3A9BE']},
+      {type:'Podcast', tag:'Motherhood', title:'Becoming a mother, without losing yourself', teaser:'Two Bohra mothers talk candidly about identity, exhaustion, and joy after having children.', url:'#', grad:['#FF71B9','#FF9CC7']},
+      {type:'Article', tag:'Mental Health', title:'What anxiety actually feels like — in our own words', teaser:'A reader-submitted piece describing the physical and emotional weight of anxiety.', url:'#', grad:['#FFB8DC','#FF71B9']},
+      {type:'Podcast', tag:'Marriage', title:"When the rishta doesn't match the reality", teaser:'A frank conversation on expectation versus experience in early marriage.', url:'#', grad:['#FF9CC7','#C40057']},
+      {type:'Article', tag:'Faith & Healing', title:'Finding comfort in dua during hard seasons', teaser:'How prayer and professional support can coexist, not compete.', url:'#', grad:['#FF71B9','#FFB8DC']},
+      {type:'Podcast', tag:'Grief', title:'Grieving a parent while holding a family together', teaser:'On loss, duty, and giving yourself permission to fall apart sometimes.', url:'#', grad:['#FFB8DC','#FF9CC7']},
+      {type:'Article', tag:'Domestic Life', title:'Setting boundaries without guilt', teaser:'Practical language for saying no within close-knit family structures.', url:'#', grad:['#FF9CC7','#FF71B9']},
     ];
   }
 
@@ -824,7 +824,7 @@
       media = (data && data.length) ? data.map(m=>({
         type: m.type.charAt(0).toUpperCase()+m.type.slice(1), // 'podcast' -> 'Podcast'
         tag: m.tag, title: m.title, teaser: m.teaser, url: m.url,
-        grad: [m.gradient_start || '#E3A9BE', m.gradient_end || '#E3C68C']
+        grad: [m.gradient_start || '#FF71B9', m.gradient_end || '#FF9CC7']
       })) : seedMedia();
     }catch(e){
       console.warn('Supabase media fetch failed (using placeholder data). Check SUPABASE_URL/ANON_KEY are set.', e);
@@ -836,13 +836,13 @@
 
   function archIcon(grad){
     return `<div class="voice-top" style="background:linear-gradient(135deg, ${grad[0]}, ${grad[1]});">
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 20s-6.5-4-8.5-8C2 8.5 3.5 5 7 5c2 0 3.4 1.2 5 3.3C13.6 6.2 15 5 17 5c3.5 0 5 3.5 3.5 7-2 4-8.5 8-8.5 8Z" fill="#742842" opacity="0.85"/></svg>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 20s-6.5-4-8.5-8C2 8.5 3.5 5 7 5c2 0 3.4 1.2 5 3.3C13.6 6.2 15 5 17 5c3.5 0 5 3.5 3.5 7-2 4-8.5 8-8.5 8Z" fill="#C40057" opacity="0.85"/></svg>
     </div>`;
   }
 
   function mediaCardHTML(m){
     return `<div class="voice-card media-card reveal">
-      ${archIcon(m.grad || ['#E3A9BE','#E3C68C'])}
+      ${archIcon(m.grad || ['#FF71B9','#FF9CC7'])}
       <div class="voice-body">
         <div class="voice-tag">${m.tag}</div>
         <h3>${m.title}</h3>

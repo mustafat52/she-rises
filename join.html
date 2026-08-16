@@ -8,17 +8,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ivory:#FBF3EC; --ivory-deep:#F2E4D6; --rose-deep:#742842; --rose-deep-dark:#511C30;
-    --rose-soft:#E3A9BE; --gold:#B8862E; --gold-soft:#E3C68C; --gold-line:#C08A34;
-    --ink:#2A2220; --ink-soft:#5A4C46; --teal:#3F6B5E; --teal-soft:#DCE9E4;
+    --ivory:#FFFCF7; --ivory-deep:#FFE0F0; --rose-deep:#C40057; --rose-deep-dark:#8F0040;
+    --rose-soft:#FF71B9; --gold:#0C6A7A; --gold-soft:#B9EFF5; --gold-line:#21D3EB;
+    --ink:#130020; --ink-soft:#582D76; --teal:#C40057; --teal-soft:#FFE0F0;
     --shadow:0 14px 34px -18px rgba(42,34,32,0.4);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
-  body{background:var(--ivory); color:var(--ink); font-family:'Karla',sans-serif; min-height:100vh;}
+  body{background:var(--ivory-deep); color:var(--ink); font-family:'Karla',sans-serif; min-height:100vh;}
   h1,h2,h3{font-family:'Fraunces',serif; font-weight:500; color:var(--rose-deep);}
   button{font-family:inherit; cursor:pointer; border:none;}
   input,select,textarea{font-family:inherit;}
-  :focus-visible{outline:2.5px solid var(--teal); outline-offset:2px;}
+  :focus-visible{outline:2.5px solid var(--gold-line); outline-offset:2px;}
 
   #screen{
     min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
@@ -26,7 +26,7 @@
   }
   .card{
     background:#fff; border-radius:6px 6px 26px 26px; padding:44px 40px; max-width:420px; width:100%;
-    box-shadow:var(--shadow); text-align:center; border:1px solid rgba(116,40,66,0.1); border-top:3px solid var(--gold-line);
+    box-shadow:var(--shadow); text-align:center; border:1px solid rgba(196,0,87,0.1); border-top:3px solid var(--gold-line);
   }
   .mark{width:58px; height:58px; margin:0 auto 18px; border-radius:50%; object-fit:cover; border:2px solid var(--gold);}
   .card h1{font-size:1.4rem; margin-bottom:6px;}
@@ -34,7 +34,7 @@
   .field{margin-bottom:14px; text-align:left;}
   .field label{display:block; font-size:0.78rem; font-weight:700; color:var(--rose-deep); margin-bottom:5px;}
   .field input{
-    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.25);
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(196,0,87,0.25);
     background:var(--ivory); font-size:0.92rem; color:var(--ink);
   }
   .submit-btn{
@@ -78,7 +78,7 @@
   </div>
 
   <div class="card success-state" id="successCard">
-    <svg width="52" height="52" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#3F6B5E" stroke-width="1.6"/><path d="M8 12.5l2.5 2.5L16 9" stroke="#3F6B5E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#C40057" stroke-width="1.6"/><path d="M8 12.5l2.5 2.5L16 9" stroke="#C40057" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <h1>Request sent</h1>
     <p>Thank you — your account has been created and is now waiting for an admin to review and activate it. You'll be able to sign in once that's done.</p>
   </div>

@@ -8,9 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ivory:#FBF3EC; --ivory-deep:#F2E4D6; --rose-deep:#742842; --rose-deep-dark:#511C30;
-    --rose-soft:#E3A9BE; --gold:#B8862E; --gold-line:#C08A34; --gold-soft:#E3C68C;
-    --ink:#2A2220; --ink-soft:#5A4C46; --teal:#3F6B5E; --teal-soft:#DCE9E4;
+    --ivory:#FFFCF7; --ivory-deep:#FFE0F0; --rose-deep:#C40057; --rose-deep-dark:#8F0040;
+    --rose-soft:#FF71B9; --gold:#0C6A7A; --gold-line:#21D3EB; --gold-soft:#B9EFF5;
+    --ink:#130020; --ink-soft:#582D76; --teal:#C40057; --teal-soft:#FFE0F0;
     --shadow:0 14px 34px -18px rgba(42,34,32,0.4);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -18,11 +18,11 @@
   h1,h2,h3{font-family:'Fraunces',serif; font-weight:500; color:var(--rose-deep);}
   button{font-family:inherit; cursor:pointer; border:none;}
   input,textarea{font-family:inherit;}
-  :focus-visible{outline:2.5px solid var(--teal); outline-offset:2px;}
+  :focus-visible{outline:2.5px solid var(--gold-line); outline-offset:2px;}
 
   /* ---------- Top bar: always-visible quick exit ---------- */
   .topbar{
-    position:sticky; top:0; z-index:100; background:var(--ivory); border-bottom:1px solid rgba(116,40,66,0.12);
+    position:sticky; top:0; z-index:100; background:var(--ivory); border-bottom:1px solid rgba(196,0,87,0.12);
     padding:12px 20px; display:flex; justify-content:space-between; align-items:center;
   }
   .topbar-brand{display:flex; align-items:center; gap:10px;}
@@ -42,7 +42,7 @@
   .landing p{color:var(--ink-soft); font-size:0.98rem; margin-bottom:32px; line-height:1.6;}
   .choice-grid{display:grid; gap:16px;}
   .choice-card{
-    background:#fff; border:1px solid rgba(116,40,66,0.12); border-radius:6px 6px 20px 20px; border-top:3px solid var(--gold-line);
+    background:#fff; border:1px solid rgba(196,0,87,0.12); border-radius:6px 6px 20px 20px; border-top:3px solid var(--gold-line);
     padding:26px; text-align:left; transition:transform .2s, box-shadow .2s;
   }
   .choice-card:hover{transform:translateY(-2px); box-shadow:var(--shadow);}
@@ -52,12 +52,12 @@
   .choice-card .go-btn:hover{background:var(--rose-deep-dark);}
   .resume-input-row{display:flex; gap:8px; margin-top:4px;}
   .resume-input-row input{
-    flex:1; padding:11px 13px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2); font-size:0.95rem;
+    flex:1; padding:11px 13px; border-radius:10px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.95rem;
     letter-spacing:0.05em; text-transform:uppercase;
   }
 
   .privacy-note{
-    background:var(--teal-soft); border-radius:12px; padding:14px 16px; font-size:0.82rem; color:#2A4A40;
+    background:var(--teal-soft); border-radius:12px; padding:14px 16px; font-size:0.82rem; color:#582D76;
     margin-top:26px; text-align:left; display:flex; gap:10px; align-items:flex-start;
   }
 
@@ -67,7 +67,7 @@
   .starter h2{font-size:1.3rem; margin-bottom:10px;}
   .starter p.sub{color:var(--ink-soft); font-size:0.92rem; margin-bottom:20px; line-height:1.6;}
   .starter textarea{
-    width:100%; min-height:120px; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(116,40,66,0.2);
+    width:100%; min-height:120px; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(196,0,87,0.2);
     font-size:0.98rem; resize:vertical; background:#fff;
   }
   .starter-send{
@@ -81,19 +81,19 @@
   .intake-form{display:grid; gap:14px;}
   .intake-row label{display:block; font-size:0.8rem; font-weight:600; color:var(--rose-deep); margin-bottom:5px;}
   .intake-row input{
-    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(196,0,87,0.2);
     font-size:0.95rem; background:#fff; font-family:inherit; color:inherit;
   }
   .gender-pill-row{display:flex; gap:8px; flex-wrap:wrap;}
   .gender-pill{
-    padding:9px 15px; border-radius:99px; border:1.5px solid rgba(116,40,66,0.25);
+    padding:9px 15px; border-radius:99px; border:1.5px solid rgba(196,0,87,0.25);
     background:#fff; font-size:0.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
   }
   .gender-pill.selected{background:var(--rose-deep); color:#fff; border-color:var(--rose-deep);}
   .problem-dropdown{position:relative;}
   .problem-dropdown-box{
     display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
-    width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid rgba(116,40,66,0.2);
+    width:100%; padding:10px 14px; border-radius:10px; border:1.5px solid rgba(196,0,87,0.2);
     background:#fff; min-height:24px; box-sizing:border-box;
   }
   .problem-dropdown-chips{display:flex; flex-wrap:wrap; gap:6px;}
@@ -102,12 +102,12 @@
   .problem-dropdown-arrow{color:var(--rose-deep); font-size:0.8rem; flex-shrink:0;}
   .problem-dropdown-panel{
     display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:20;
-    background:#fff; border:1.5px solid rgba(116,40,66,0.2); border-radius:10px;
-    max-height:260px; overflow-y:auto; padding:6px; box-shadow:0 8px 24px rgba(116,40,66,0.15);
+    background:#fff; border:1.5px solid rgba(196,0,87,0.2); border-radius:10px;
+    max-height:260px; overflow-y:auto; padding:6px; box-shadow:0 8px 24px rgba(196,0,87,0.15);
   }
   .problem-dropdown-panel.open{display:block;}
   .problem-option{display:flex; align-items:center; gap:9px; padding:9px 10px; font-size:0.9rem; border-radius:7px; cursor:pointer;}
-  .problem-option:hover{background:var(--ivory-deep, #f6ece7);}
+  .problem-option:hover{background:var(--ivory-deep, #FFE0F0);}
   .problem-option input{width:16px; height:16px; flex-shrink:0;}
 
   /* ---------- Access code reveal ---------- */
@@ -125,7 +125,7 @@
     padding:0 18px; height:100%; align-self:stretch; font-weight:700; font-size:0.85rem; cursor:pointer;
   }
   .code-copy-btn:hover{background:var(--rose-deep-dark);}
-  .code-copy-btn.copied{background:var(--teal, #2f6f5e);}
+  .code-copy-btn.copied{background:var(--teal, #C40057);}
   .code-warning{font-size:0.78rem; color:var(--ink-soft); opacity:0.85; line-height:1.5;}
   .code-continue{margin-top:18px; background:var(--rose-deep); color:var(--ivory); padding:12px 26px; border-radius:99px; font-weight:700; font-size:0.9rem;}
   .code-continue:hover{background:var(--rose-deep-dark);}
@@ -134,11 +134,11 @@
   .chat-view{display:none; flex-direction:column; height:calc(100vh - 70px); padding-top:16px;}
   .chat-view.active{display:flex;}
   .chat-card{
-    background:#fff; border:1px solid rgba(116,40,66,0.12); border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line);
+    background:#fff; border:1px solid rgba(196,0,87,0.12); border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line);
     box-shadow:var(--shadow); display:flex; flex-direction:column; flex:1; overflow:hidden;
   }
   .chat-status{
-    background:var(--ivory-deep); border-bottom:1px solid rgba(116,40,66,0.1); padding:14px 18px; font-size:0.84rem; color:var(--ink-soft);
+    background:var(--ivory-deep); border-bottom:1px solid rgba(196,0,87,0.1); padding:14px 18px; font-size:0.84rem; color:var(--ink-soft);
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; flex-shrink:0;
   }
   .chat-status strong{color:var(--rose-deep);}
@@ -151,14 +151,14 @@
     align-self:center; background:var(--gold-soft); color:var(--rose-deep-dark); text-align:center;
     font-size:0.82rem; font-weight:600; border-radius:99px; padding:9px 18px; max-width:90%;
   }
-  .chat-input-row{display:flex; gap:10px; padding:14px 18px; border-top:1px solid rgba(116,40,66,0.1); flex-shrink:0; background:#fff;}
+  .chat-input-row{display:flex; gap:10px; padding:14px 18px; border-top:1px solid rgba(196,0,87,0.1); flex-shrink:0; background:#fff;}
   .chat-input-row textarea{
-    flex:1; padding:12px 14px; border-radius:12px; border:1.5px solid rgba(116,40,66,0.2); font-size:0.94rem;
+    flex:1; padding:12px 14px; border-radius:12px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.94rem;
     resize:none; max-height:100px; background:#fff;
   }
   .chat-send-btn{background:var(--rose-deep); color:var(--ivory); padding:0 20px; border-radius:12px; font-weight:700; flex-shrink:0;}
   .chat-mic-btn{
-    background:var(--ivory-deep); color:var(--rose-deep); border:1.5px solid rgba(116,40,66,0.2);
+    background:var(--ivory-deep); color:var(--rose-deep); border:1.5px solid rgba(196,0,87,0.2);
     width:44px; height:44px; border-radius:50%; flex-shrink:0; font-size:1.1rem; cursor:pointer;
   }
   .chat-mic-btn.recording{background:var(--danger, #b3423a); color:#fff; border-color:var(--danger, #b3423a); animation:mic-pulse 1.4s infinite;}
@@ -215,7 +215,7 @@
       </div>
     </div>
     <div class="privacy-note">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:1px;"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.8 1.3 4.5 2.4L12 8l1.5-1.6C14.2 5.3 15.8 4 18 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9Z" stroke="#2A4A40" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:1px;"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.8 1.3 4.5 2.4L12 8l1.5-1.6C14.2 5.3 15.8 4 18 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9Z" stroke="#582D76" stroke-width="1.6" stroke-linejoin="round"/></svg>
       <div>You never need to create an account or give your name. Only the volunteer or counsellor assigned to you can see what you write.</div>
     </div>
   </div>
