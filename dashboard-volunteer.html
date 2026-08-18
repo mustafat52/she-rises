@@ -500,39 +500,68 @@
     window.location.href = '/dashboard';
   }
 
+  // Handles a session however it arrives — an immediate getSession() hit
+  // (the common case), or a slightly delayed one caught by onAuthStateChange.
+  // That second path matters right after signing in on /dashboard: it
+  // redirects here straight away, and this fresh page's own Supabase client
+  // can occasionally ask "is there a session?" a beat before the previous
+  // page's sign-in has finished writing it to storage. Without a fallback,
+  // that one-shot check coming back empty looked exactly like "not signed
+  // in" — sending someone who just successfully logged in right back to
+  // this gate screen. sessionHandled just stops it running the show-app
+  // logic twice if both the immediate check and the event both resolve.
+  let sessionHandled = false;
+
+  async function handleSession(session){
+    if(sessionHandled || !session) return;
+    const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    if(error || !profile || !profile.is_active){
+      showGateError('No active session found — please sign in at the dashboard first.');
+      return;
+    }
+    const ALLOWED_ROLES = ['volunteer','super_volunteer'];
+    if(!ALLOWED_ROLES.includes(profile.role)){
+      showGateError('This account does not have volunteer access.');
+      return;
+    }
+    sessionHandled = true;
+    currentUser = { id: profile.id, name: profile.full_name, role: profile.role, is_lead: !!profile.is_lead };
+    setupPushNotifications(profile.fcm_token);
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    document.getElementById('app').style.display='grid';
+    document.getElementById('sideName').textContent = currentUser.name;
+    document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='super_volunteer' ? 'Senior Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : currentUser.role==='admin' ? 'Admin' : currentUser.role;
+    setupAwayToggle(profile);
+    activeView = currentUser.role==='admin' ? 'overview' : 'conversations';
+    await Promise.all([loadCounsellorList(), loadVolunteerList()]);
+    buildSideNav();
+    setView(activeView);
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if(session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')){
+      handleSession(session).catch(e=>{
+        console.warn('Session check failed.', e);
+        if(!sessionHandled) showGateError('Could not verify your session — please sign in at the dashboard first.');
+      });
+    }
+  });
+
   (async function checkExistingSession(){
     try{
       const { data } = await sb.auth.getSession();
-      if(!(data && data.session)){
-        showGateError("You're not signed in — please sign in at the dashboard first.");
+      if(data && data.session){
+        await handleSession(data.session);
         return;
       }
-      const { data: profile, error } = await sb.from('profiles').select('*').eq('id', data.session.user.id).single();
-      if(error || !profile || !profile.is_active){
-        showGateError('No active session found — please sign in at the dashboard first.');
-        return;
-      }
-      const ALLOWED_ROLES = ['volunteer','super_volunteer'];
-      if(!ALLOWED_ROLES.includes(profile.role)){
-        showGateError('This account does not have volunteer access.');
-        return;
-      }
-      currentUser = { id: profile.id, name: profile.full_name, role: profile.role, is_lead: !!profile.is_lead };
-      setupPushNotifications(profile.fcm_token);
-      document.getElementById('authLoading').style.display = 'none';
-      document.getElementById('app').classList.add('active');
-      document.getElementById('app').style.display='grid';
-      document.getElementById('sideName').textContent = currentUser.name;
-      document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='super_volunteer' ? 'Senior Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : currentUser.role==='admin' ? 'Admin' : currentUser.role;
-      setupAwayToggle(profile);
-      activeView = currentUser.role==='admin' ? 'overview' : 'conversations';
-      await Promise.all([loadCounsellorList(), loadVolunteerList()]);
-      buildSideNav();
-      setView(activeView);
-    }catch(e){
-      console.warn('Session check failed (or Supabase not configured yet).', e);
-      showGateError('Could not verify your session — please sign in at the dashboard first.');
-    }
+    }catch(e){ console.warn('No existing session yet (or Supabase not configured).', e); }
+    // Nothing found on the first pass — give onAuthStateChange a brief
+    // window to catch a just-completed sign-in before concluding there's
+    // genuinely no session.
+    setTimeout(()=>{
+      if(!sessionHandled) showGateError("You're not signed in — please sign in at the dashboard first.");
+    }, 1500);
   })();
 
   function setupAwayToggle(profile){
