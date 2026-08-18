@@ -13,7 +13,7 @@
       ]
     },
     {
-      "source": "/(dashboard|msn-taj)",
+      "source": "/(dashboard|dashboard-volunteer|dashboard-counsellor|dashboard-admin|msn-taj)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, must-revalidate" }
       ]

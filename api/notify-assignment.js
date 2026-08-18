@@ -68,7 +68,7 @@ module.exports = async (req, res) => {
       data: {
         title,
         body,
-        url: 'https://she-rises-kappa.vercel.app/dashboard',
+        url: 'https://she-rises-kappa.vercel.app/dashboard-counsellor',
       },
     });
 

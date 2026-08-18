@@ -84,12 +84,6 @@
     width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(196,0,87,0.2);
     font-size:0.95rem; background:#fff; font-family:inherit; color:inherit;
   }
-  .gender-pill-row{display:flex; gap:8px; flex-wrap:wrap;}
-  .gender-pill{
-    padding:9px 15px; border-radius:99px; border:1.5px solid rgba(196,0,87,0.25);
-    background:#fff; font-size:0.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
-  }
-  .gender-pill.selected{background:var(--rose-deep); color:#fff; border-color:var(--rose-deep);}
   .problem-dropdown{position:relative;}
   .problem-dropdown-box{
     display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
@@ -223,33 +217,9 @@
   <!-- ===== NEW CONVERSATION STARTER ===== -->
   <div id="starter" class="starter">
     <a class="back-link" href="#" onclick="showLanding();return false;">← Back</a>
-    <h2>A little about you, first</h2>
-    <p class="sub">This stays private between you and whoever you're connected with — it just helps a volunteer understand your situation before you start talking.</p>
+    <h2>What's this about?</h2>
+    <p class="sub">Just pick whatever fits closest — everything else, a volunteer will ask you naturally once you're talking.</p>
     <div class="intake-form">
-      <div class="intake-row">
-        <label for="intakeName">Name</label>
-        <input type="text" id="intakeName" placeholder="Your name">
-      </div>
-      <div class="intake-row">
-        <label>Gender</label>
-        <div class="gender-pill-row" id="intakeGender">
-          <button type="button" class="gender-pill" data-value="Female" onclick="selectGenderPill(this)">Female</button>
-          <button type="button" class="gender-pill" data-value="Male" onclick="selectGenderPill(this)">Male</button>
-        </div>
-      </div>
-      <div class="intake-row">
-        <label for="intakeLocation">Location</label>
-        <input type="text" id="intakeLocation" placeholder="City, or 'online only'">
-      </div>
-      <div class="intake-row">
-        <label for="intakePhone">Phone number</label>
-        <input type="tel" id="intakePhone" placeholder="A number a counsellor can reach you on">
-        <div class="hint" style="font-size:0.78rem; color:var(--ink-soft); margin-top:5px;">Only shared with a counsellor if your case is ever passed on to one — never shown to anyone else.</div>
-      </div>
-      <div class="intake-row">
-        <label for="intakeIts">ITS number</label>
-        <input type="text" id="intakeIts" placeholder="Your ITS number">
-      </div>
       <div class="intake-row">
         <label>Problem <span style="font-weight:400; color:var(--ink-soft);">(tap all that fit)</span></label>
         <div class="problem-dropdown" id="problemDropdown">
@@ -277,9 +247,7 @@
         <input type="text" id="intakeProblemOther" placeholder="Please specify…" style="display:none; margin-top:10px;">
       </div>
     </div>
-    <p class="sub" style="margin-top:20px; margin-bottom:10px;">Now, tell us what's going on. Write whatever feels right — a sentence or a few paragraphs. A volunteer will read this and respond as soon as they can.</p>
-    <textarea id="firstMessageInput" placeholder="Start typing here…"></textarea>
-    <button class="starter-send" onclick="startConversation()">Send</button>
+    <button class="starter-send" onclick="startConversation()">Start conversation</button>
   </div>
 
   <!-- ===== ACCESS CODE REVEAL ===== -->
@@ -328,12 +296,6 @@
   function showStarter(){
     document.getElementById('landing').style.display = 'none';
     document.getElementById('starter').classList.add('active');
-    document.getElementById('firstMessageInput').focus();
-  }
-
-  function selectGenderPill(el){
-    document.querySelectorAll('.gender-pill').forEach(p => p.classList.remove('selected'));
-    el.classList.add('selected');
   }
 
   function toggleProblemDropdown(e){
@@ -355,25 +317,14 @@
   }
 
   async function startConversation(){
-    const name = document.getElementById('intakeName').value.trim();
-    const genderEl = document.querySelector('.gender-pill.selected');
-    const gender = genderEl ? genderEl.dataset.value : '';
-    const location = document.getElementById('intakeLocation').value.trim();
-    const phone = document.getElementById('intakePhone').value.trim();
-    const its = document.getElementById('intakeIts').value.trim();
     const otherText = document.getElementById('intakeProblemOther').value.trim();
     const problem = Array.from(document.querySelectorAll('#problemPanel input[type=checkbox]:checked')).map(c=>{
       if(c.value === 'Other') return otherText ? `Other: ${otherText}` : 'Other';
       return c.value;
     }).join(', ');
-    const text = document.getElementById('firstMessageInput').value.trim();
-    if(!name || !gender || !location || !phone || !its || !problem){ showToast('Please fill in all the fields above'); return; }
-    if(!text){ showToast('Please write something first'); return; }
+    if(!problem){ showToast('Please choose what this is about'); return; }
     try{
-      const { data, error } = await sb.rpc('start_conversation', {
-        p_name: name, p_gender: gender, p_phone: phone, p_location: location, p_its_number: its,
-        p_problem_category: problem, p_first_message: text
-      });
+      const { data, error } = await sb.rpc('start_conversation', { p_problem_category: problem });
       if(error) throw error;
       const row = data[0];
       currentAccessCode = row.out_access_code;
