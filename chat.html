@@ -409,7 +409,11 @@
 
     const container = document.getElementById('chatMessages');
     const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
-    container.innerHTML = rows.map(m => {
+    // A brand new conversation has no real messages yet — get_conversation
+    // still returns one row so the status/assignment info comes through,
+    // but its message fields are all null. Filter that placeholder out
+    // rather than rendering an empty bubble for it.
+    container.innerHTML = rows.filter(m => m.message_id).map(m => {
       if(m.sender_type === 'system'){
         return `<div class="msg msg-system">${escapeHtml(m.body)}</div>`;
       }
