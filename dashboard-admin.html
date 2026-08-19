@@ -52,7 +52,12 @@
   .side-brand svg{width:32px; height:32px;}
   .side-brand-name{font-family:'Fraunces',serif; font-size:1.05rem;}
   .side-user{
-    background:transparent; border-radius:0; padding:0; margin-bottom:0; display:flex; align-items:center; gap:8px;
+    background:transparent; border-radius:0; padding:0; margin-bottom:0; display:flex; align-items:center; gap:10px;
+  }
+  .user-avatar{
+    width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, var(--rose-soft), var(--rose-deep));
+    color:var(--ivory); font-family:'Fraunces',serif; font-weight:600; font-size:0.9rem;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .side-user .role-badge{
     font-family:'IBM Plex Mono',monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em;
@@ -117,15 +122,22 @@
   .app-actions{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
 
   /* ---------- Admin: stats, breakdowns, team/contributor lists ---------- */
+  .today{color:var(--ink-soft); font-size:0.8rem; flex-shrink:0; padding-top:4px;}
   .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:30px;}
   .stat-card{
     background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:6px 6px 18px 18px; border-top:3px solid var(--gold-line);
-    padding:20px 22px;
+    padding:20px 22px; box-shadow:0 6px 18px -14px rgba(19,0,32,0.3);
   }
   .stat-card .num{font-family:'Fraunces',serif; font-size:2rem; color:var(--rose-deep); line-height:1;}
   .stat-card .lbl{font-size:0.82rem; color:var(--ink-soft); margin-top:6px;}
-  .stat-card.warn-card{border-top-color:var(--danger);}
+  .stat-card.hero-card{
+    background:linear-gradient(135deg, var(--rose-deep), var(--rose-deep-dark)); border:none; border-top:none;
+  }
+  .stat-card.hero-card .num{color:var(--ivory);}
+  .stat-card.hero-card .lbl{color:var(--ivory); opacity:0.85;}
+  .stat-card.warn-card{border-top-color:var(--danger); border-color:var(--danger);}
   .stat-card.warn-card .num{color:var(--danger);}
+  .stat-card.warn-card .lbl{color:var(--danger); font-weight:600;}
 
   .panel{
     background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:6px 6px 22px 22px; border-top:3px solid var(--gold-line);
@@ -367,8 +379,11 @@
       <div class="side-brand-name">She Rises</div>
     </div>
     <div class="side-user">
-      <div class="role-badge" id="sideRole">Volunteer</div>
-      <div class="uname" id="sideName">—</div>
+      <div class="user-avatar" id="userAvatar"></div>
+      <div>
+        <div class="role-badge" id="sideRole">Volunteer</div>
+        <div class="uname" id="sideName">—</div>
+      </div>
     </div>
     <div id="awayToggleWrap" style="display:none; margin-bottom:14px;">
       <label style="display:flex; align-items:center; gap:8px; color:#FFD9EC; font-size:0.85rem; cursor:pointer;" title="Pause new conversations from being assigned to you">
@@ -385,6 +400,7 @@
         <h1 id="viewTitle">Triage Inbox</h1>
         <p id="viewSub">New cases from the WhatsApp line, waiting to be reviewed.</p>
       </div>
+      <div class="today" id="overviewDate" style="display:none;"></div>
     </div>
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
@@ -554,6 +570,8 @@
     document.getElementById('app').classList.add('active');
     document.getElementById('app').style.display='flex';
     document.getElementById('sideName').textContent = currentUser.name;
+    const initials = (currentUser.name || '?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    document.getElementById('userAvatar').textContent = initials;
     document.getElementById('sideRole').textContent = currentUser.role==='volunteer' ? 'Volunteer' : currentUser.role==='super_volunteer' ? 'Senior Volunteer' : currentUser.role==='counsellor' ? 'Counsellor' : currentUser.role==='admin' ? 'Admin' : currentUser.role;
     setupAwayToggle(profile);
     activeView = currentUser.role==='admin' ? 'overview' : 'conversations';
@@ -643,6 +661,7 @@
     document.getElementById('pendingView').style.display = 'none';
     document.getElementById('teamView').style.display = 'none';
     document.getElementById('contributorsView').style.display = 'none';
+    document.getElementById('overviewDate').style.display = 'none';
     if(convPollInterval){ clearInterval(convPollInterval); convPollInterval = null; }
 
     if(v === 'conversations'){
@@ -658,8 +677,14 @@
       loadApplications();
     } else if(v === 'overview'){
       document.getElementById('overviewView').style.display = 'block';
-      document.getElementById('viewTitle').textContent = 'Overview';
-      document.getElementById('viewSub').textContent = 'How the platform is being used, at a glance.';
+      const hour = new Date().getHours();
+      const timeGreeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      const firstName = (currentUser.name || '').split(' ')[0] || 'there';
+      document.getElementById('viewTitle').textContent = `${timeGreeting}, ${firstName}`;
+      document.getElementById('viewSub').textContent = "Here's how She Rises is doing today.";
+      const dateEl = document.getElementById('overviewDate');
+      dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+      dateEl.style.display = '';
       loadAdminOverviewData();
     } else if(v === 'pending'){
       document.getElementById('pendingView').style.display = 'block';
@@ -692,6 +717,99 @@
       const el = document.getElementById('count-'+k);
       if(el) el.textContent = v;
     });
+  }
+
+  function escapeConvHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function timeAgo(ms){
+    const diff = Date.now() - ms;
+    if(diff < 60000) return 'just now';
+    const mins = Math.floor(diff / 60000);
+    if(mins < 60) return mins + (mins===1 ? ' min ago' : ' mins ago');
+    const hours = Math.floor(mins / 60);
+    if(hours < 24) return hours + (hours===1 ? ' hour ago' : ' hours ago');
+    const days = Math.floor(hours / 24);
+    if(days < 7) return days + (days===1 ? ' day ago' : ' days ago');
+    const weeks = Math.floor(days / 7);
+    if(weeks < 5) return weeks + (weeks===1 ? ' week ago' : ' weeks ago');
+    const months = Math.floor(days / 30);
+    if(months < 12) return months + (months===1 ? ' month ago' : ' months ago');
+    const years = Math.floor(days / 365);
+    return years + (years===1 ? ' year ago' : ' years ago');
+  }
+
+  // Chrome bug: audio recorded via MediaRecorder often has no real duration
+  // baked into the file (shows as Infinity/NaN), which is why playback can
+  // look fine one time and stop partway or show 0:00/0:00 another — the
+  // player doesn't actually know where the file ends. Seeking near the end
+  // once forces it to properly parse the whole stream; after that, normal
+  // playback/duration/seeking all work correctly.
+  function fixAudioDuration(audioEl){
+    const onLoaded = () => {
+      if(audioEl.duration === Infinity || isNaN(audioEl.duration)){
+        audioEl.currentTime = 1e101;
+        const onTimeUpdate = () => {
+          audioEl.currentTime = 0;
+          audioEl.removeEventListener('timeupdate', onTimeUpdate);
+        };
+        audioEl.addEventListener('timeupdate', onTimeUpdate);
+      }
+      audioEl.removeEventListener('loadedmetadata', onLoaded);
+    };
+    audioEl.addEventListener('loadedmetadata', onLoaded);
+  }
+
+  async function loadVoiceMessageUrls(container){
+    const players = container.querySelectorAll('audio[data-audio-path]');
+    for(const el of players){
+      const path = el.dataset.audioPath;
+      try{
+        const { data, error } = await sb.storage.from('voice-notes').createSignedUrl(path, 3600);
+        if(!error && data){
+          el.src = data.signedUrl;
+          fixAudioDuration(el);
+        }
+      }catch(e){ console.error('Could not load voice message', e); }
+    }
+  }
+
+  function renderThreadActions(c, isOwnerSide, isMyCounsellorCase){
+    const btns = [];
+    if(isOwnerSide){
+      if(c.status === 'new' || c.status === 'triaged'){
+        btns.push(`<button class="act-btn" onclick="openEscalateModal('${c.id}')">Escalate to Counsellor</button>`);
+        btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','volunteer')">Close Case</button>`);
+      } else if(c.status === 'pending_counsellor'){
+        btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','volunteer')">Close Case</button>`);
+        if(currentUser.role==='admin' && isUnclaimed24h(c)){
+          btns.push(`<button class="act-btn primary" onclick="openAssignDirectModal('${c.id}')">Assign a Counsellor</button>`);
+        }
+      }
+      // ---------- transfer to a senior volunteer ----------
+      const notYetWithCounsellor = c.status === 'new' || c.status === 'triaged' || c.status === 'pending_counsellor';
+      const availableLeads = volunteerList.filter(v => v.role === 'super_volunteer' && v.id !== currentUser.id);
+      if(notYetWithCounsellor && !c.transferred_to && c.assigned_to === currentUser.id && availableLeads.length){
+        btns.push(`<button class="act-btn" onclick="openTransferModal('${c.id}')">Transfer to Senior Volunteer</button>`);
+      }
+      if(c.transferred_to === currentUser.id){
+        btns.push(`<button class="act-btn primary" onclick="returnCase('${c.id}')">Return to ${escapeConvHtml(volunteerName(c.assigned_to))}</button>`);
+      } else if(c.transferred_to && c.assigned_to === currentUser.id){
+        // she's the original volunteer, currently view-only while the senior handles it
+        btns.push(`<span class="app-status-badge pending">Being handled by ${escapeConvHtml(volunteerName(c.transferred_to))} — you can view but not reply right now</span>`);
+      }
+    }
+    if(currentUser.role==='counsellor'){
+      if(c.status === 'pending_counsellor'){
+        btns.push(`<button class="act-btn primary" onclick="claimCase('${c.id}')">Take This Case</button>`);
+      } else if(isMyCounsellorCase && (c.status==='assigned' || c.status==='in_progress')){
+        btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','counsellor')">Close Case</button>`);
+      }
+    }
+    return btns.join('');
   }
 
   // ================= CONVERSATIONS (chat) =================
@@ -1075,6 +1193,7 @@
   const SPECIALTY_TAGS = ALL_TAGS.filter(t => t !== 'General Support').concat(['General Support']); // same taxonomy, reused
 
   let applicantIdsWithPendingApplication = new Set();
+  let overviewCases = [];
 
   async function loadAdminOverviewData(){
     try{
@@ -1099,20 +1218,33 @@
       console.error('Could not load pending counsellor applications', e);
       applicantIdsWithPendingApplication = new Set();
     }
+    try{
+      // A lightweight, dedicated fetch for the stats below — not reusing
+      // `conversations` (loaded by the Conversations tab) or the old dead
+      // `cases` array (nothing populates that anymore), since neither is
+      // guaranteed to hold anything if Overview is the very first screen
+      // opened after signing in.
+      const { data, error } = await sb.from('cases').select('id,status,severity,tags,resolved_at').eq('source','chat');
+      if(error) throw error;
+      overviewCases = data || [];
+    }catch(e){
+      console.error('Could not load case stats', e);
+      overviewCases = [];
+    }
     renderOverview();
     renderPending();
     renderTeam();
   }
 
   function renderOverview(){
-    const total = cases.length;
-    const open = cases.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
-    const crisis = cases.filter(c=>c.severity==='crisis' && c.status!=='resolved').length;
+    const total = overviewCases.length;
+    const open = overviewCases.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+    const crisis = overviewCases.filter(c=>c.severity==='crisis' && c.status!=='resolved').length;
     const now = Date.now();
-    const resolvedThisMonth = cases.filter(c=> c.status==='resolved' && c.resolvedAt && (now - c.resolvedAt) < 30*24*3600*1000).length;
+    const resolvedThisMonth = overviewCases.filter(c=> c.status==='resolved' && c.resolved_at && (now - new Date(c.resolved_at).getTime()) < 30*24*3600*1000).length;
 
     document.getElementById('statGrid').innerHTML = `
-      <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total women who've reached out</div></div>
+      <div class="stat-card hero-card"><div class="num">${total}</div><div class="lbl">Total women who've reached out</div></div>
       <div class="stat-card"><div class="num">${open}</div><div class="lbl">Currently open cases</div></div>
       <div class="stat-card warn-card"><div class="num">${crisis}</div><div class="lbl">Open crisis-tagged cases</div></div>
       <div class="stat-card"><div class="num">${resolvedThisMonth}</div><div class="lbl">Resolved in last 30 days</div></div>
@@ -1120,11 +1252,11 @@
 
     const statusLabels = {new:'New · Untriaged', triaged:'Triaged', assigned:'Assigned', in_progress:'In Progress', resolved:'Resolved', closed:'Closed'};
     const statusCounts = {};
-    cases.forEach(c=>{ statusCounts[c.status] = (statusCounts[c.status]||0)+1; });
+    overviewCases.forEach(c=>{ statusCounts[c.status] = (statusCounts[c.status]||0)+1; });
     document.getElementById('statusBreakdown').innerHTML = renderBreakdown(statusCounts, statusLabels, total);
 
     const tagCounts = {};
-    cases.forEach(c=>{ (c.tags||[]).forEach(t=>{ tagCounts[t] = (tagCounts[t]||0)+1; }); });
+    overviewCases.forEach(c=>{ (c.tags||[]).forEach(t=>{ tagCounts[t] = (tagCounts[t]||0)+1; }); });
     const tagTotal = Object.values(tagCounts).reduce((a,b)=>a+b,0) || 1;
     document.getElementById('tagBreakdown').innerHTML = Object.keys(tagCounts).length
       ? renderBreakdown(tagCounts, null, tagTotal)
