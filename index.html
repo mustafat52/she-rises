@@ -215,22 +215,6 @@
   .voice-link{font-weight:700; font-size:0.88rem; color:var(--rose-deep); display:inline-flex; align-items:center; gap:6px;}
   .voice-link:hover{color:var(--rose-deep-dark); gap:9px;}
 
-  /* resource strip */
-  .resource-strip{
-    display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;
-    background:var(--teal); color:var(--ivory); border-radius:8px; padding:30px 34px; position:relative; overflow:hidden;
-  }
-  .resource-strip::before{
-    content:''; position:absolute; inset:0; opacity:0.07; pointer-events:none;
-    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><path d="M30,0 L60,30 L30,60 L0,30 Z" fill="none" stroke="%23FFFCF7" stroke-width="1"/></svg>');
-    background-size:60px 60px;
-  }
-  .resource-strip h3, .resource-strip p, .resource-strip .btn-primary{position:relative;}
-  .resource-strip h3{color:var(--ivory); font-size:1.15rem; margin-bottom:6px;}
-  .resource-strip p{color:#FFD9EC; font-size:0.92rem; max-width:52ch;}
-  .resource-strip .btn-primary{background:var(--ivory); color:var(--teal); box-shadow:none;}
-  .resource-strip .btn-primary:hover{background:#fff;}
-
   .contribute-banner{
     display:flex; align-items:center; justify-content:space-between; gap:32px; flex-wrap:wrap;
     background:linear-gradient(120deg, var(--rose-deep), var(--rose-deep-dark));
@@ -317,30 +301,6 @@
   }
   .process-step h4{color:var(--rose-deep); margin-bottom:5px; font-size:1.02rem;}
   .process-step p{color:var(--ink-soft); font-size:0.92rem;}
-
-  /* ============ RESOURCES PAGE ============ */
-  .resources-hero{padding:56px 0 10px;}
-  .crisis-banner{
-    background:var(--rose-deep); color:var(--ivory); border-radius:8px; padding:28px 30px; margin:34px 0 50px;
-    display:flex; gap:18px; align-items:flex-start;
-  }
-  .crisis-banner p{color:#FFD9EC; font-size:0.92rem;}
-  .crisis-banner h3{color:var(--ivory); margin-bottom:8px; font-size:1.08rem;}
-  .helpline-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:16px;}
-  .helpline{background:rgba(255,255,255,0.1); border-radius:14px; padding:14px 16px;}
-  .helpline .num{font-family:'IBM Plex Mono',monospace; font-size:1rem; font-weight:600;}
-  .helpline .lbl{font-size:0.78rem; color:#FFD9EC; margin-top:2px;}
-
-  .resource-cat{margin-bottom:50px;}
-  .resource-cat h3{font-size:1.15rem; margin-bottom:16px; display:flex; align-items:center; gap:10px;}
-  .resource-cat-dot{width:10px; height:10px; border-radius:3px; background:var(--gold);}
-  .resource-items{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
-  .resource-item{
-    padding:18px 20px; border:1px solid rgba(196,0,87,0.12); border-radius:6px;
-    display:flex; justify-content:space-between; align-items:center; gap:12px;
-  }
-  .resource-item h4{font-size:0.96rem; color:var(--ink); margin-bottom:3px;}
-  .resource-item p{font-size:0.82rem; color:var(--ink-soft);}
 
   /* ============ FIND A COUNSELLOR PAGE ============ */
   .filter-group{margin-bottom:22px;}
@@ -431,7 +391,6 @@
       <button class="nav-btn" data-page="voices" onclick="goPage('voices')">Voices</button>
       <button class="nav-btn" data-page="support" onclick="goPage('support')">Find Support</button>
       <button class="nav-btn" data-page="counsellors" onclick="goPage('counsellors')">Find a Counsellor</button>
-      <button class="nav-btn" data-page="resources" onclick="goPage('resources')">Resources</button>
       <button class="nav-btn" data-page="workshops" onclick="goPage('workshops')">Workshops</button>
       <button class="nav-btn" data-page="about" onclick="goPage('about')">About</button>
     </nav>
@@ -448,10 +407,9 @@
       <div>
         <div class="eyebrow reveal">A safe space for women</div>
         <h1 class="reveal">You are not alone <em>in this.</em></h1>
-        <p class="lead reveal">She Rises is a space built by and for Dawoodi Bohra women — to be heard without judgement, to find real support, and to know that reaching out is never a weakness.</p>
+        <p class="lead reveal">You don't have to go through this alone. Talk to someone who listens — safely, privately, and without judgement. She Rises connects Dawoodi Bohra women with real support, right when you need it.</p>
         <div class="btn-row reveal">
           <a class="btn-primary" href="/chat">Reach Out Now →</a>
-          <a class="btn-secondary" href="#" onclick="goPage('voices');return false;">Listen First</a>
         </div>
       </div>
       <div class="hero-visual reveal">
@@ -537,13 +495,6 @@
     </section>
 
     <section>
-      <div class="resource-strip reveal">
-        <div>
-          <h3>In immediate danger or crisis?</h3>
-          <p>If you or someone you know is in crisis, please don't wait for a reply here — reach a helpline or emergency service first.</p>
-        </div>
-        <a class="btn-primary" href="#" onclick="goPage('resources');return false;">See Crisis Resources</a>
-      </div>
     </section>
 
     <section>
@@ -598,7 +549,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 4a11 11 0 0 0-17 13.3L2 22l4.9-1a11 11 0 0 0 13.1-17Z" stroke="#FFFCF7" stroke-width="1.6"/></svg>
           Start a Conversation
         </a>
-        <p class="support-note">If this is a life-threatening emergency, please contact local emergency services or a crisis line immediately — see Resources.</p>
+        <p class="support-note">If this is a life-threatening emergency, please contact local emergency services immediately.</p>
       </div>
     </div>
 
@@ -651,54 +602,6 @@
     </div>
 
     <div class="counsellor-grid" id="counsellorGrid"></div>
-  </div>
-
-  <!-- ================= RESOURCES ================= -->
-  <div class="page" id="page-resources">
-    <div class="resources-hero jaali-bg">
-      <div class="eyebrow reveal">Resources</div>
-      <h1 class="reveal" style="max-width:22ch;">Support that doesn't wait for a reply.</h1>
-      <p class="reveal" style="color:var(--ink-soft); max-width:60ch; margin-top:14px;">These are available right now, any time — no need to wait for She Rises to respond first.</p>
-    </div>
-
-    <div class="crisis-banner reveal">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:2px;"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="#FFFCF7" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      <div style="flex:1;">
-        <h3>If you're in immediate danger or thinking of harming yourself</h3>
-        <p>Please reach out to one of these right away — they're free, confidential, and available now.</p>
-        <div class="helpline-grid">
-          <div class="helpline"><div class="num">1800-599-0019</div><div class="lbl">KIRAN Mental Health Helpline (India, 24/7)</div></div>
-          <div class="helpline"><div class="num">9152987821</div><div class="lbl">iCall Psychosocial Helpline (India)</div></div>
-          <div class="helpline"><div class="num">1860-2662-345</div><div class="lbl">Vandrevala Foundation (India, 24/7)</div></div>
-          <div class="helpline"><div class="num">112</div><div class="lbl">Emergency services (India)</div></div>
-        </div>
-        <p style="margin-top:14px; font-size:0.8rem; opacity:0.85;">Outside India: 988 (US &amp; Canada Suicide &amp; Crisis Lifeline) · 116 123 Samaritans (UK) · or search "crisis helpline" + your country.</p>
-      </div>
-    </div>
-
-    <div class="resource-cat">
-      <h3><span class="resource-cat-dot"></span>Talk to someone</h3>
-      <div class="resource-items">
-        <div class="resource-item"><div><h4>Message She Rises on WhatsApp</h4><p>A volunteer from the community, usually within a day</p></div><a class="btn-secondary" style="padding:9px 16px; font-size:0.85rem;" href="https://wa.link/kwwqdl" target="_blank">Open →</a></div>
-        <div class="resource-item"><div><h4>iCall by TISS</h4><p>Free, confidential counselling by trained professionals</p></div><span class="eyebrow">9152987821</span></div>
-      </div>
-    </div>
-
-    <div class="resource-cat">
-      <h3><span class="resource-cat-dot"></span>Understand what you're feeling</h3>
-      <div class="resource-items">
-        <div class="resource-item"><div><h4>Explore Voices</h4><p>Articles &amp; podcasts on mental health, marriage, motherhood</p></div><a class="btn-secondary" style="padding:9px 16px; font-size:0.85rem;" href="#" onclick="goPage('voices');return false;">Browse →</a></div>
-        <div class="resource-item"><div><h4>Recognising burnout &amp; overwhelm</h4><p>A short guide on early signs, from our Voices library</p></div><a class="btn-secondary" style="padding:9px 16px; font-size:0.85rem;" href="#" onclick="goPage('voices');return false;">Read →</a></div>
-      </div>
-    </div>
-
-    <div class="resource-cat">
-      <h3><span class="resource-cat-dot"></span>Facing domestic violence</h3>
-      <div class="resource-items">
-        <div class="resource-item"><div><h4>Women's Helpline (India)</h4><p>National helpline for women in distress, 24/7</p></div><span class="eyebrow">181</span></div>
-        <div class="resource-item"><div><h4>National Commission for Women</h4><p>Complaint &amp; support cell</p></div><span class="eyebrow">7827170170</span></div>
-      </div>
-    </div>
   </div>
 
   <!-- ================= WORKSHOPS ================= -->
@@ -769,7 +672,6 @@
         <a href="#" onclick="goPage('voices');return false;">Voices</a>
         <a href="#" onclick="goPage('support');return false;">Find Support</a>
         <a href="#" onclick="goPage('counsellors');return false;">Find a Counsellor</a>
-        <a href="#" onclick="goPage('resources');return false;">Resources</a>
         <a href="#" onclick="goPage('workshops');return false;">Workshops</a>
       </div>
       <div class="footer-col">
