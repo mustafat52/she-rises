@@ -167,6 +167,20 @@
   .voice-msg{display:flex; align-items:center; gap:8px;}
   .voice-msg audio{height:36px; max-width:220px;}
   .chat-send-btn:hover{background:var(--rose-deep-dark);}
+  .chat-send-btn:disabled{opacity:0.6; cursor:not-allowed;}
+  .typing-indicator{
+    display:none; align-items:center; gap:6px; padding:6px 18px; font-size:0.8rem; color:var(--ink-soft); font-style:italic; flex-shrink:0;
+  }
+  .typing-indicator.active{display:flex;}
+  .typing-dot{width:5px; height:5px; border-radius:50%; background:var(--ink-soft); animation:typing-bounce 1s infinite;}
+  .typing-dot:nth-child(2){animation-delay:0.15s;}
+  .typing-dot:nth-child(3){animation-delay:0.3s;}
+  @keyframes typing-bounce{ 0%,60%,100%{transform:translateY(0); opacity:0.5;} 30%{transform:translateY(-3px); opacity:1;} }
+  .chat-ended-note{
+    display:none; padding:14px 18px; border-top:1px solid rgba(196,0,87,0.1); background:var(--ivory-deep);
+    color:var(--ink-soft); font-size:0.86rem; text-align:center; flex-shrink:0;
+  }
+  .chat-ended-note.active{display:block;}
 
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink);
@@ -267,11 +281,13 @@
     <div class="chat-card">
       <div class="chat-status" id="chatStatus">Loading…</div>
       <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-input-row">
+      <div class="typing-indicator" id="typingIndicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> typing…</div>
+      <div class="chat-input-row" id="chatInputRow">
         <textarea id="chatInput" placeholder="Type a message…" rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
         <button type="button" class="chat-mic-btn" id="micBtn" onclick="toggleRecording()" title="Record a voice message">🎤</button>
-        <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">Send</button>
       </div>
+      <div class="chat-ended-note" id="chatEndedNote">This conversation has ended. If you need to talk again, please start a new one.</div>
       <div id="recordingIndicator" class="recording-indicator"><span id="recordingIndicatorText">● Recording… 0:00</span> <button type="button" id="recordingIndicatorBtn" onclick="cancelRecording()">Cancel</button></div>
     </div>
   </div>
@@ -398,7 +414,7 @@
 
   function renderConversation(rows){
     const first = rows[0];
-    const signature = first.status + '|' + first.assigned_role + '|' + rows.length;
+    const signature = first.status + '|' + first.assigned_role + '|' + rows.length + '|' + (first.staff_typing_at||'');
     if(signature === lastRenderSignature) return; // nothing actually changed — skip re-render entirely
     lastRenderSignature = signature;
 
@@ -406,6 +422,20 @@
     const roleLabel = first.assigned_role === 'counsellor' ? 'Speaking with a counsellor' : first.assigned_role === 'volunteer' ? 'Speaking with a volunteer' : 'Waiting for a volunteer';
     document.getElementById('chatStatus').innerHTML =
       `<span>${roleLabel}</span><span>${statusLabel}</span>`;
+
+    // A closed/resolved conversation shouldn't silently keep accepting
+    // messages nobody will ever read — hide the input entirely and say so
+    // plainly, rather than leaving her to type into a conversation nobody
+    // is watching anymore.
+    const isEnded = first.status === 'resolved' || first.status === 'closed';
+    document.getElementById('chatInputRow').style.display = isEnded ? 'none' : 'flex';
+    document.getElementById('chatEndedNote').classList.toggle('active', isEnded);
+    if(isEnded){
+      document.getElementById('typingIndicator').classList.remove('active');
+    } else {
+      const typingRecently = first.staff_typing_at && (Date.now() - new Date(first.staff_typing_at).getTime()) < 8000;
+      document.getElementById('typingIndicator').classList.toggle('active', !!typingRecently);
+    }
 
     const container = document.getElementById('chatMessages');
     const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
@@ -475,27 +505,45 @@
   }
 
   async function sendChatMessage(){
+    const btn = document.getElementById('chatSendBtn');
+    if(btn && btn.disabled) return; // already sending — ignore a rapid second click/Enter
+
     // If a voice note is recorded and waiting, Send sends that — not the (empty) textarea.
     if(pendingVoiceBlob){
-      await uploadAndSendVoiceMessage(pendingVoiceBlob, pendingVoiceMimeType);
-      clearPendingVoice();
+      if(btn){ btn.disabled = true; btn.textContent = 'Uploading…'; }
+      const ok = await uploadAndSendVoiceMessage(pendingVoiceBlob, pendingVoiceMimeType);
+      if(btn){ btn.disabled = false; btn.textContent = 'Send'; }
+      // Only clear the recording once it's actually been sent — a failed
+      // upload used to wipe it anyway, forcing a full re-record on top of
+      // whatever just went wrong.
+      if(ok) clearPendingVoice();
       return;
     }
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if(!text) return;
     input.value = '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
     try{
       const { data, error } = await sb.rpc('send_message_as_seeker', { p_access_code: currentAccessCode, p_body: text });
       if(error) throw error;
-      if(!data){ showToast('Could not send — please try again'); return; }
+      if(!data){
+        input.value = text;
+        showToast('Could not send — your message has been restored, please try again');
+        return;
+      }
       // optimistic append; realtime subscription will also catch staff replies
       const container = document.getElementById('chatMessages');
       container.insertAdjacentHTML('beforeend', `<div class="msg msg-seeker">${escapeHtml(text)}</div>`);
       container.scrollTop = container.scrollHeight;
     }catch(e){
       console.error(e);
-      showToast('Could not send — please try again');
+      // Restore what she typed rather than losing it — a failed send
+      // shouldn't cost her having to write it all again.
+      input.value = text;
+      showToast('Could not send — your message has been restored, please try again');
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = 'Send'; }
     }
   }
 
@@ -512,6 +560,7 @@
   let recordingCancelled = false;
   let pendingVoiceBlob = null;
   let pendingVoiceMimeType = null;
+  const MAX_RECORDING_SECONDS = 180; // 3 minutes — long enough to say what she needs to, short enough to stay a quick upload
 
   async function toggleRecording(){
     if(pendingVoiceBlob) return; // a recording is already waiting to be sent or discarded
@@ -555,6 +604,10 @@
     const m = Math.floor(secs / 60);
     const s = (secs % 60).toString().padStart(2, '0');
     document.getElementById('recordingIndicatorText').textContent = `● Recording… ${m}:${s}`;
+    if(secs >= MAX_RECORDING_SECONDS){
+      showToast('Reached the 3 minute limit — stopping the recording');
+      stopRecording();
+    }
   }
 
   function cancelRecording(){
@@ -616,18 +669,27 @@
 
   async function uploadAndSendVoiceMessage(blob, mimeType){
     try{
-      const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+      // Cover more than just webm/mp4 — if the browser handed us something
+      // else entirely (rare, but possible), save it with a matching
+      // extension instead of silently mislabeling it as .webm.
+      let ext = 'webm';
+      if(mimeType.includes('mp4') || mimeType.includes('m4a')) ext = 'm4a';
+      else if(mimeType.includes('ogg')) ext = 'ogg';
+      else if(mimeType.includes('wav')) ext = 'wav';
+      else if(mimeType.includes('webm')) ext = 'webm';
       const path = `${currentAccessCode}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error: uploadError } = await sb.storage.from('voice-notes').upload(path, blob, { contentType: mimeType });
       if(uploadError) throw uploadError;
       const { data, error } = await sb.rpc('send_voice_message_as_seeker', { p_access_code: currentAccessCode, p_storage_path: path });
       if(error) throw error;
-      if(data === false){ showToast('Could not send voice message — please try again'); return; }
+      if(data === false){ showToast('Could not send voice message — please try again'); return false; }
       const { data: fresh, error: fetchErr } = await sb.rpc('get_conversation', { p_access_code: currentAccessCode });
       if(!fetchErr && fresh){ lastRenderSignature = ''; renderConversation(fresh); }
+      return true;
     }catch(e){
       console.error('Could not send voice message', e);
-      showToast('Could not send voice message: ' + (e.message || 'unknown error'));
+      showToast('Could not send voice message: ' + (e.message || 'unknown error') + ' — your recording is still here, tap Send to try again');
+      return false;
     }
   }
 

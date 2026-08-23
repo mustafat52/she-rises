@@ -388,6 +388,8 @@
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
       <div id="convListPanel" style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+        <input type="text" id="convSearchInput" placeholder="Search by name or case ref…" oninput="renderConversationList()"
+          style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:10px; flex-shrink:0; background:#fff;">
         <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0;"></div>
         <div class="conv-list" id="convList" style="flex:1;"><div class="loading-row">Loading conversations…</div></div>
       </div>
@@ -607,7 +609,7 @@
   }
 
   function setView(v){
-    activeView = v; activeTagFilter='All'; buildSideNav();
+    activeView = v; activeTagFilter='All'; convFilter='all'; buildSideNav();
     if(convPollInterval){ clearInterval(convPollInterval); convPollInterval = null; }
     document.getElementById('convWrap').style.display = 'grid';
     if(v === 'mine'){
@@ -625,14 +627,14 @@
   }
 
   function updateCounts(){
-    const counters = (currentUser.role==='volunteer' || currentUser.role==='admin')
-      ? {inbox: cases.filter(c=>c.status==='new').length,
-         assigned: cases.filter(c=>c.status==='assigned'||c.status==='in_progress').length,
-         all: cases.length,
-         resolved: cases.filter(c=>c.status==='resolved').length}
-      : {mine: cases.filter(c=>c.status!=='resolved').length,
-         resolved: cases.filter(c=>c.status==='resolved').length};
-    counters.conversations = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+    // Reads real data (`conversations`) rather than the old `cases` array,
+    // which nothing populates in this file anymore — that's why these
+    // badges always sat at 0 before.
+    const counters = {
+      conversations: conversations.filter(c=>c.status==='pending_counsellor').length,
+      mine: conversations.filter(c=>c.assigned_counsellor===currentUser.id && c.status!=='resolved' && c.status!=='closed').length,
+      resolved: conversations.filter(c=>c.assigned_counsellor===currentUser.id && (c.status==='resolved' || c.status==='closed')).length,
+    };
     Object.entries(counters).forEach(([k,v])=>{
       const el = document.getElementById('count-'+k);
       if(el) el.textContent = v;
@@ -710,22 +712,23 @@
     }
   }
 
+  let lastRenderedChipsSignature = null;
+
   function renderConvFilterChips(){
     const wrap = document.getElementById('convFilterChips');
     if(!wrap) return;
-    let chips = [];
-    if(currentUser.role==='counsellor'){
-      chips = [
-        {id:'mine', label:'My Cases'},
-        {id:'queue', label:'Open Queue'},
-      ];
-      if(convFilter==='all') convFilter='mine';
-    } else if(currentUser.role==='volunteer' || currentUser.role==='super_volunteer' || currentUser.role==='admin'){
-      chips = [{id:'all', label:'All'}];
-      if(currentUser.role==='super_volunteer') chips.push({id:'transferred', label:'Transferred to Me'});
-      if(currentUser.role==='admin') chips.push({id:'unclaimed', label:'Needs Assignment (24h+)'});
-    }
-    if(chips.length <= 1){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+    // Severity is the only thing these chips control now — which case SET
+    // you're looking at (queue / mine / resolved) is the sidebar nav's job.
+    // They used to overlap (a 'mine'/'queue' chip pair sitting next to a
+    // 'My Cases' nav item doing the same thing), which is what let the
+    // Resolved tab silently show the wrong list — nothing was actually
+    // wired to filter by it.
+    const chips = [{id:'all', label:'All'}, {id:'crisis', label:'Crisis'}, {id:'high', label:'High Priority'}];
+    if(currentUser.role==='super_volunteer') chips.push({id:'transferred', label:'Transferred to Me'});
+    if(currentUser.role==='admin') chips.push({id:'unclaimed', label:'Needs Assignment (24h+)'});
+    const signature = activeView + '|' + convFilter + '|' + chips.map(c=>c.id).join(',');
+    if(signature === lastRenderedChipsSignature) return;
+    lastRenderedChipsSignature = signature;
     wrap.style.display = 'flex';
     wrap.innerHTML = chips.map(ch=>`<button type="button" class="filter-chip ${ch.id===convFilter?'active':''}" onclick="setConvFilter('${ch.id}')">${ch.label}</button>`).join('');
   }
@@ -733,16 +736,62 @@
   function setConvFilter(f){ convFilter = f; renderConvFilterChips(); renderConversationList(); }
 
   function filteredConversations(){
-    if(convFilter==='mine') return conversations.filter(c=>c.assigned_counsellor===currentUser.id);
-    if(convFilter==='queue') return conversations.filter(c=>c.status==='pending_counsellor');
-    if(convFilter==='unclaimed') return conversations.filter(isUnclaimed24h);
-    if(convFilter==='transferred') return conversations.filter(c=>c.transferred_to===currentUser.id);
-    return conversations;
+    let list = conversations;
+    if(currentUser.role === 'counsellor'){
+      // Which SET of cases — driven by the sidebar nav (activeView), not the chips.
+      if(activeView === 'mine') list = list.filter(c => c.assigned_counsellor===currentUser.id && c.status!=='resolved' && c.status!=='closed');
+      else if(activeView === 'resolved') list = list.filter(c => c.assigned_counsellor===currentUser.id && (c.status==='resolved' || c.status==='closed'));
+      else list = list.filter(c => c.status==='pending_counsellor'); // the open queue
+    } else if(convFilter==='unclaimed'){
+      list = list.filter(isUnclaimed24h);
+    } else if(convFilter==='transferred'){
+      list = list.filter(c => c.transferred_to===currentUser.id);
+    }
+    // Severity — layered on top of whichever set is showing, any role.
+    if(convFilter==='crisis') list = list.filter(c=>c.severity==='crisis');
+    else if(convFilter==='high') list = list.filter(c=>c.severity==='high');
+
+    const searchEl = document.getElementById('convSearchInput');
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    if(q){
+      list = list.filter(c=>{
+        const name = (c.seeker_name || c.alias || '').toLowerCase();
+        const ref = (c.case_ref || '').toLowerCase();
+        return name.includes(q) || ref.includes(q);
+      });
+    }
+
+    // Crisis cases float to the top regardless of how recently they were
+    // touched — a case escalated an hour ago shouldn't sit buried under
+    // several standard ones that just happened to get a routine edit since.
+    const sevOrder = {crisis:0, high:1, standard:2};
+    return list.slice().sort((a,b)=>{
+      const sa = sevOrder[a.severity] ?? 2, sb = sevOrder[b.severity] ?? 2;
+      if(sa !== sb) return sa - sb;
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
   }
+
+  let lastRenderedListSignature = null;
 
   function renderConversationList(){
     const list = document.getElementById('convList');
     const items = filteredConversations();
+
+    // Same fix as the thread panel got earlier — this was rebuilding every
+    // .conv-item from scratch on every 8s poll regardless of whether
+    // anything changed, which is what caused the flickering: if the mouse
+    // was hovering a button in the list right as a poll landed, that DOM
+    // node got replaced out from under the cursor.
+    const searchVal = document.getElementById('convSearchInput')?.value || '';
+    const signature = activeView + '|' + convFilter + '|' + searchVal + '|' + activeConvCaseId + '|' + items.map(c => {
+      const msgs = c.case_messages || [];
+      const lastMsg = msgs.length ? msgs[msgs.length-1] : null;
+      return [c.id, c.status, msgs.length, lastMsg ? lastMsg.id : '', c.transferred_to||'', c.escalated_at||''].join(':');
+    }).join(',');
+    if(signature === lastRenderedListSignature) return;
+    lastRenderedListSignature = signature;
+
     if(!items.length){ list.innerHTML = '<div class="loading-row">Nothing here right now.</div>'; return; }
     list.innerHTML = items.map(c=>{
       let preview, time;
@@ -836,7 +885,7 @@
       </div>
       ${canReply ? `
       <div class="conv-thread-input">
-        <textarea id="convReplyInput" rows="1" placeholder="Type a reply…" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendConvReply('${c.id}');}"></textarea>
+        <textarea id="convReplyInput" rows="1" placeholder="Type a reply…" oninput="pingTyping('${c.id}')" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendConvReply('${c.id}');}"></textarea>
         <button onclick="sendConvReply('${c.id}')">Send</button>
       </div>` : ''}
     `;
@@ -876,8 +925,17 @@
             <div><dt>Location</dt><dd>${escapeConvHtml(c.seeker_location || '—')}</dd></div>
             <div><dt>ITS number</dt><dd>${escapeConvHtml(c.its_number || '—')}</dd></div>
             <div><dt>Problem</dt><dd>${escapeConvHtml(c.problem_category || '—')}</dd></div>
-            <div><dt>Severity</dt><dd style="text-transform:capitalize;">${escapeConvHtml(c.severity || '—')}</dd></div>
+            ${isMyCase ? '' : `<div><dt>Severity</dt><dd style="text-transform:capitalize;">${escapeConvHtml(c.severity || '—')}</dd></div>`}
           </dl>
+          ${isMyCase ? `
+          <div class="field" style="margin-top:4px;">
+            <label>Severity <span style="font-weight:400; color:var(--ink-soft);">(update if it's more/less urgent than it looked at intake)</span></label>
+            <div class="sev-select-grid">
+              <button type="button" class="sev-opt standard ${c.severity==='standard'?'selected':''}" onclick="updateCaseSeverity('${c.id}','standard')">Standard</button>
+              <button type="button" class="sev-opt high ${c.severity==='high'?'selected':''}" onclick="updateCaseSeverity('${c.id}','high')">High Priority</button>
+              <button type="button" class="sev-opt crisis ${c.severity==='crisis'?'selected':''}" onclick="updateCaseSeverity('${c.id}','crisis')">Crisis</button>
+            </div>
+          </div>` : ''}
           ${(c.tags||[]).length ? `<div class="app-tags">${c.tags.map(t=>`<span class="tag-pill">${escapeConvHtml(t)}</span>`).join('')}</div>` : ''}
           <div class="app-statement">
             <div style="font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; color:var(--gold); margin-bottom:4px;">What the volunteer shared</div>
@@ -999,6 +1057,8 @@
         btns.push(`<button class="act-btn primary" onclick="claimCase('${c.id}')">Take This Case</button>`);
       } else if(isMyCounsellorCase && (c.status==='assigned' || c.status==='in_progress')){
         btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','counsellor')">Close Case</button>`);
+      } else if(isMyCounsellorCase && (c.status==='resolved' || c.status==='closed')){
+        btns.push(`<button class="act-btn" onclick="reopenCase('${c.id}')">Reopen Case</button>`);
       }
     }
     return btns.join('');
@@ -1055,6 +1115,18 @@
       ? 'Open for over 24 hours — no counsellor has taken it yet. Use "Assign a Counsellor" above to place it directly.'
       : 'Listed for counsellors — any counsellor can take this case up directly. No action needed from you unless it goes unclaimed past 24 hours.';
     return `<div style="padding:10px 20px; border-bottom:1px solid rgba(196,0,87,0.1); background:var(--ivory-deep); font-size:0.85rem; color:var(--ink-soft);">${label}</div>`;
+  }
+
+  // Debounced — only pings the DB at most once every 3s while she's
+  // actively typing, rather than on every keystroke. The seeker's page
+  // reads this as "recent enough to still count as typing" for about 8s,
+  // so it naturally clears itself once typing actually stops.
+  let lastTypingPing = 0;
+  function pingTyping(caseId){
+    const now = Date.now();
+    if(now - lastTypingPing < 3000) return;
+    lastTypingPing = now;
+    sb.from('cases').update({ staff_typing_at: new Date().toISOString() }).eq('id', caseId).then(()=>{}, ()=>{});
   }
 
   async function sendConvReply(caseId){
@@ -1138,6 +1210,30 @@
       if(data === false){ showToast('Someone else just took this case'); await loadConversations(); return; }
     }catch(e){ console.error(e); showToast('Could not take this case: ' + (e.message || 'unknown error')); return; }
     showToast('Case assigned to you — the seeker has been notified');
+    await loadConversations();
+  }
+
+  async function updateCaseSeverity(caseId, severity){
+    try{
+      const { error } = await sb.from('cases').update({ severity }).eq('id', caseId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not update severity: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Severity updated');
+    await loadConversations();
+  }
+
+  // A case closed by mistake shouldn't be a dead end — this just undoes
+  // what close_case_as_counsellor set, rather than needing a database fix.
+  async function reopenCase(caseId){
+    try{
+      const { error } = await sb.from('cases').update({ status:'in_progress', resolved_at:null, close_reason:null }).eq('id', caseId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not reopen: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Case reopened');
     await loadConversations();
   }
 

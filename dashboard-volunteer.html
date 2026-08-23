@@ -388,6 +388,8 @@
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
       <div id="convListPanel" style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+        <input type="text" id="convSearchInput" placeholder="Search by name or case ref…" oninput="renderConversationList()"
+          style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:10px; flex-shrink:0; background:#fff;">
         <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0;"></div>
         <div class="conv-list" id="convList" style="flex:1;"><div class="loading-row">Loading conversations…</div></div>
       </div>
@@ -422,6 +424,14 @@
 
   // ================= CONFIG =================
   const ALL_TAGS = ['Depression','Anxiety','Domestic Violence','Suicidal Thoughts','Marital Conflict','Grief','Motherhood Stress','Faith & Guilt','General Support'];
+  // Same taxonomy as chat.html's intake picker, kept in sync so a problem
+  // entered here reads identically to whatever she picked when she started —
+  // no stray free-text variants to make Admin's "Cases by topic" messy.
+  const PROBLEM_CATEGORIES = [
+    'Marital / Husband Issues','Divorce & Separation','In-Law / Family Issues','Children & Parenting',
+    'Financial Difficulties','Mental Health & Emotional Well-being','Suicidal Thoughts','Deen & Spiritual Guidance',
+    'Dua & Istirshaadan Araz','Araz','Personal / Life Challenges','Domestic Conflict','Abuse or Safety Concerns','Other'
+  ];
   const CRISIS_TAGS = ['Suicidal Thoughts','Domestic Violence'];
 
   let currentUser = null;      // {id, name, role}
@@ -613,24 +623,69 @@
   }
 
   function updateCounts(){
-    const counters = (currentUser.role==='volunteer' || currentUser.role==='admin')
-      ? {inbox: cases.filter(c=>c.status==='new').length,
-         assigned: cases.filter(c=>c.status==='assigned'||c.status==='in_progress').length,
-         all: cases.length,
-         resolved: cases.filter(c=>c.status==='resolved').length}
-      : {mine: cases.filter(c=>c.status!=='resolved').length,
-         resolved: cases.filter(c=>c.status==='resolved').length};
-    counters.conversations = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
-    Object.entries(counters).forEach(([k,v])=>{
-      const el = document.getElementById('count-'+k);
-      if(el) el.textContent = v;
-    });
+    const badge = document.getElementById('count-conversations');
+    if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
   }
 
   function escapeConvHtml(str){
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  function toggleTagOpt(el){
+    el.classList.toggle('selected');
+    if(el.dataset.tag === 'Other'){
+      const otherInput = document.getElementById('f_problem_other');
+      if(otherInput) otherInput.style.display = el.classList.contains('selected') ? '' : 'none';
+    }
+  }
+  function selectSev(el){
+    el.parentElement.querySelectorAll('.sev-opt').forEach(o=>o.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  // Parses the comma-separated problem_category string back into which
+  // PROBLEM_CATEGORIES chips should show pre-selected, plus whatever
+  // free-text detail followed "Other:" if she'd picked that at intake.
+  function parseProblemCategory(value){
+    const parts = (value || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const selected = new Set();
+    let otherText = '';
+    parts.forEach(p=>{
+      if(p.toLowerCase().startsWith('other:')){
+        selected.add('Other');
+        otherText = p.slice(p.indexOf(':')+1).trim();
+      } else if(p === 'Other'){
+        selected.add('Other');
+      } else if(PROBLEM_CATEGORIES.includes(p)){
+        selected.add(p);
+      }
+    });
+    return { selected, otherText };
+  }
+
+  function renderProblemChips(existingValue){
+    const { selected, otherText } = parseProblemCategory(existingValue);
+    const chips = PROBLEM_CATEGORIES.map(cat=>
+      `<button type="button" class="tag-opt ${selected.has(cat)?'selected':''}" data-tag="${escapeConvHtml(cat)}" onclick="toggleTagOpt(this)">${escapeConvHtml(cat)}</button>`
+    ).join('');
+    return `
+      <div class="tag-select-grid" id="f_problem_chips">${chips}</div>
+      <input id="f_problem_other" value="${escapeConvHtml(otherText)}" placeholder="If 'Other', say what…" style="margin-top:10px; ${selected.has('Other')?'':'display:none;'}">
+    `;
+  }
+
+  function collectProblemCategoryValue(){
+    const selectedEls = Array.from(document.querySelectorAll('#f_problem_chips .tag-opt.selected'));
+    const otherInput = document.getElementById('f_problem_other');
+    return selectedEls.map(el=>{
+      if(el.dataset.tag === 'Other'){
+        const detail = otherInput ? otherInput.value.trim() : '';
+        return detail ? `Other: ${detail}` : 'Other';
+      }
+      return el.dataset.tag;
+    }).join(', ');
   }
 
   function timeAgo(ms){
@@ -696,6 +751,8 @@
         if(currentUser.role==='admin' && isUnclaimed24h(c)){
           btns.push(`<button class="act-btn primary" onclick="openAssignDirectModal('${c.id}')">Assign a Counsellor</button>`);
         }
+      } else if(c.status === 'resolved' || c.status === 'closed'){
+        btns.push(`<button class="act-btn" onclick="reopenCase('${c.id}')">Reopen Case</button>`);
       }
       // ---------- transfer to a senior volunteer ----------
       const notYetWithCounsellor = c.status === 'new' || c.status === 'triaged' || c.status === 'pending_counsellor';
@@ -768,6 +825,8 @@
     }
   }
 
+  let lastRenderedChipsSignature = null;
+
   function renderConvFilterChips(){
     const wrap = document.getElementById('convFilterChips');
     if(!wrap) return;
@@ -779,11 +838,14 @@
       ];
       if(convFilter==='all') convFilter='mine';
     } else if(currentUser.role==='volunteer' || currentUser.role==='super_volunteer' || currentUser.role==='admin'){
-      chips = [{id:'all', label:'All'}];
+      chips = [{id:'all', label:'All'}, {id:'crisis', label:'Crisis'}, {id:'high', label:'High Priority'}];
       if(currentUser.role==='super_volunteer') chips.push({id:'transferred', label:'Transferred to Me'});
       if(currentUser.role==='admin') chips.push({id:'unclaimed', label:'Needs Assignment (24h+)'});
     }
-    if(chips.length <= 1){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+    if(chips.length <= 1){ wrap.style.display='none'; wrap.innerHTML=''; lastRenderedChipsSignature = null; return; }
+    const signature = convFilter + '|' + chips.map(c=>c.id).join(',');
+    if(signature === lastRenderedChipsSignature) return;
+    lastRenderedChipsSignature = signature;
     wrap.style.display = 'flex';
     wrap.innerHTML = chips.map(ch=>`<button type="button" class="filter-chip ${ch.id===convFilter?'active':''}" onclick="setConvFilter('${ch.id}')">${ch.label}</button>`).join('');
   }
@@ -791,16 +853,53 @@
   function setConvFilter(f){ convFilter = f; renderConvFilterChips(); renderConversationList(); }
 
   function filteredConversations(){
-    if(convFilter==='mine') return conversations.filter(c=>c.assigned_counsellor===currentUser.id);
-    if(convFilter==='queue') return conversations.filter(c=>c.status==='pending_counsellor');
-    if(convFilter==='unclaimed') return conversations.filter(isUnclaimed24h);
-    if(convFilter==='transferred') return conversations.filter(c=>c.transferred_to===currentUser.id);
-    return conversations;
+    let list = conversations;
+    if(convFilter==='mine') list = list.filter(c=>c.assigned_counsellor===currentUser.id);
+    else if(convFilter==='queue') list = list.filter(c=>c.status==='pending_counsellor');
+    else if(convFilter==='unclaimed') list = list.filter(isUnclaimed24h);
+    else if(convFilter==='transferred') list = list.filter(c=>c.transferred_to===currentUser.id);
+    else if(convFilter==='crisis') list = list.filter(c=>c.severity==='crisis');
+    else if(convFilter==='high') list = list.filter(c=>c.severity==='high');
+    const searchEl = document.getElementById('convSearchInput');
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+    if(q){
+      list = list.filter(c=>{
+        const name = (c.seeker_name || c.alias || '').toLowerCase();
+        const ref = (c.case_ref || '').toLowerCase();
+        return name.includes(q) || ref.includes(q);
+      });
+    }
+    // Crisis cases float to the top regardless of how recently they were
+    // touched — a case escalated an hour ago shouldn't sit buried under
+    // several standard ones that just happened to get a routine edit since.
+    const sevOrder = {crisis:0, high:1, standard:2};
+    return list.slice().sort((a,b)=>{
+      const sa = sevOrder[a.severity] ?? 2, sb = sevOrder[b.severity] ?? 2;
+      if(sa !== sb) return sa - sb;
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
   }
+
+  let lastRenderedListSignature = null;
 
   function renderConversationList(){
     const list = document.getElementById('convList');
     const items = filteredConversations();
+
+    // Same fix as the thread panel got earlier — this was rebuilding every
+    // .conv-item from scratch on every 8s poll regardless of whether
+    // anything changed, which is what caused the flickering: if the mouse
+    // was hovering a button in the list right as a poll landed, that DOM
+    // node got replaced out from under the cursor.
+    const searchVal = document.getElementById('convSearchInput')?.value || '';
+    const signature = convFilter + '|' + searchVal + '|' + activeConvCaseId + '|' + items.map(c => {
+      const msgs = c.case_messages || [];
+      const lastMsg = msgs.length ? msgs[msgs.length-1] : null;
+      return [c.id, c.status, msgs.length, lastMsg ? lastMsg.id : '', c.transferred_to||'', c.escalated_at||''].join(':');
+    }).join(',');
+    if(signature === lastRenderedListSignature) return;
+    lastRenderedListSignature = signature;
+
     if(!items.length){ list.innerHTML = '<div class="loading-row">Nothing here right now.</div>'; return; }
     list.innerHTML = items.map(c=>{
       let preview, time;
@@ -894,8 +993,8 @@
       </div>
       ${canReply ? `
       <div class="conv-thread-input">
-        <textarea id="convReplyInput" rows="1" placeholder="Type a reply…" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendConvReply('${c.id}');}"></textarea>
-        <button onclick="sendConvReply('${c.id}')">Send</button>
+        <textarea id="convReplyInput" rows="1" placeholder="Type a reply…" oninput="pingTyping('${c.id}')" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendConvReply('${c.id}');}"></textarea>
+        <button id="convSendBtn" onclick="sendConvReply('${c.id}')">Send</button>
       </div>` : ''}
     `;
     const msgBox = document.getElementById('convMessages');
@@ -956,11 +1055,26 @@
     return `<div style="padding:10px 20px; border-bottom:1px solid rgba(196,0,87,0.1); background:var(--ivory-deep); font-size:0.85rem; color:var(--ink-soft);">${label}</div>`;
   }
 
+  // Debounced — only pings the DB at most once every 3s while she's
+  // actively typing, rather than on every keystroke. The seeker's page
+  // reads this as "recent enough to still count as typing" for about 8s,
+  // so it naturally clears itself once typing actually stops.
+  let lastTypingPing = 0;
+  function pingTyping(caseId){
+    const now = Date.now();
+    if(now - lastTypingPing < 3000) return;
+    lastTypingPing = now;
+    sb.from('cases').update({ staff_typing_at: new Date().toISOString() }).eq('id', caseId).then(()=>{}, ()=>{});
+  }
+
   async function sendConvReply(caseId){
     const input = document.getElementById('convReplyInput');
+    const btn = document.getElementById('convSendBtn');
+    if(btn && btn.disabled) return; // already sending — ignore a rapid second click/Enter
     const text = input.value.trim();
     if(!text) return;
     input.value = '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
     const senderType = currentUser.role === 'counsellor' ? 'counsellor' : 'volunteer';
     try{
       const { error } = await sb.from('case_messages').insert({
@@ -969,8 +1083,15 @@
       if(error) throw error;
       await sb.from('cases').update({ updated_at: new Date().toISOString() }).eq('id', caseId);
     }catch(e){
-      console.error(e); showToast('Could not send: ' + (e.message || 'unknown error')); return;
+      console.error(e);
+      // Restore what she typed rather than losing it — a failed send
+      // shouldn't cost her having to retype the whole message.
+      input.value = text;
+      showToast('Could not send — your message has been restored, please try again');
+      if(btn){ btn.disabled = false; btn.textContent = 'Send'; }
+      return;
     }
+    if(btn){ btn.disabled = false; btn.textContent = 'Send'; }
     await loadConversations();
   }
 
@@ -1086,6 +1207,20 @@
     await loadConversations();
   }
 
+  // A case closed by mistake shouldn't be a dead end — this just undoes
+  // what close_case_as_volunteer/close_case_as_counsellor set, rather than
+  // needing a database fix.
+  async function reopenCase(caseId){
+    try{
+      const { error } = await sb.from('cases').update({ status:'in_progress', resolved_at:null, close_reason:null }).eq('id', caseId);
+      if(error) throw error;
+    }catch(e){
+      console.error(e); showToast('Could not reopen: ' + (e.message || 'unknown error')); return;
+    }
+    showToast('Case reopened');
+    await loadConversations();
+  }
+
   async function toggleAway(){
     const away = document.getElementById('awayToggle').checked;
     try{
@@ -1122,7 +1257,14 @@
         <div class="field"><label>Location</label><input id="f_location" value="${escapeConvHtml(fromConvs.seeker_location || '')}" placeholder="City, or 'online only'"></div>
         <div class="field"><label>Phone number</label><input id="f_phone" type="tel" value="${escapeConvHtml(fromConvs.seeker_phone || '')}" placeholder="A number a counsellor can reach her on"></div>
         <div class="field"><label>ITS number</label><input id="f_its" value="${escapeConvHtml(fromConvs.its_number || '')}" placeholder="Her ITS number"></div>
-        <div class="field"><label>Problem</label><input id="f_problem" value="${escapeConvHtml(fromConvs.problem_category || '')}" placeholder="e.g. Marital / Husband Issues, Financial Difficulties"></div>
+        <div class="field"><label>Problem <span style="font-weight:400; color:var(--ink-soft);">(tap all that fit)</span></label>${renderProblemChips(fromConvs.problem_category)}</div>
+        <div class="field"><label>Severity <span style="font-weight:400; color:var(--ink-soft);">(how urgent is this?)</span></label>
+          <div class="sev-select-grid" id="f_severity">
+            <button type="button" class="sev-opt standard ${(fromConvs.severity||'standard')==='standard'?'selected':''}" data-sev="standard" onclick="selectSev(this)">Standard</button>
+            <button type="button" class="sev-opt high ${fromConvs.severity==='high'?'selected':''}" data-sev="high" onclick="selectSev(this)">High Priority</button>
+            <button type="button" class="sev-opt crisis ${fromConvs.severity==='crisis'?'selected':''}" data-sev="crisis" onclick="selectSev(this)">Crisis</button>
+          </div>
+        </div>
         <div class="modal-actions">
           <button class="btn-cancel" onclick="closeModal()">Cancel</button>
           <button class="btn-save" onclick="saveEditDetails()">Save</button>
@@ -1146,6 +1288,7 @@
   async function saveEditDetails(){
     const newAlias = document.getElementById('f_rename').value.trim();
     if(!newAlias){ showToast('Please enter a name or reference'); return; }
+    const sevEl = document.querySelector('#f_severity .sev-opt.selected');
     const payload = {
       alias: newAlias,
       seeker_name: document.getElementById('f_seeker_name').value.trim() || null,
@@ -1153,7 +1296,8 @@
       seeker_location: document.getElementById('f_location').value.trim() || null,
       seeker_phone: document.getElementById('f_phone').value.trim() || null,
       its_number: document.getElementById('f_its').value.trim() || null,
-      problem_category: document.getElementById('f_problem').value.trim() || null,
+      problem_category: collectProblemCategoryValue() || null,
+      severity: sevEl ? sevEl.dataset.sev : 'standard',
     };
     try{
       const { error } = await sb.from('cases').update(payload).eq('id', editingCaseId);

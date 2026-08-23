@@ -1168,3 +1168,50 @@ begin
   order by m.created_at asc nulls last;
 end;
 $$ language plpgsql security definer;
+
+-- ============================================================
+-- Pending signups need a way to be declined, not just activated
+-- ============================================================
+-- Until now, a pending /join signup could only ever be activated (as a
+-- volunteer or media manager) — there was no way to distinguish "declined"
+-- from "not yet reviewed," so a spam or mistaken signup would sit in
+-- Pending Approvals forever with no way to resolve it.
+alter table profiles add column if not exists declined boolean not null default false;
+
+-- ============================================================
+-- Typing indicator for the seeker's chat
+-- ============================================================
+-- A simple staleness-based timestamp rather than a realtime broadcast —
+-- this page already polls every 6s instead of using Supabase Realtime
+-- (anonymous seekers have no RLS permission to subscribe to case_messages
+-- directly), so a typing indicator with the same lag stays consistent
+-- with everything else here rather than adding a whole separate realtime
+-- layer for one feature. Staff's reply box bumps this (debounced) while
+-- she's typing; the seeker's page shows "…is typing" if it's recent, and
+-- it naturally goes stale — no separate "stopped typing" event needed.
+alter table cases add column if not exists staff_typing_at timestamptz;
+
+drop function if exists get_conversation(text);
+
+create or replace function get_conversation(p_access_code text)
+returns table(
+  case_ref text, status case_status, severity case_severity,
+  assigned_name text, assigned_role text,
+  message_id uuid, sender_type message_sender, body text, sent_at timestamptz, audio_path text,
+  staff_typing_at timestamptz
+) as $$
+begin
+  return query
+  select c.case_ref, c.status, c.severity, p.full_name,
+         case when c.assigned_counsellor is not null then 'counsellor'
+              when c.assigned_to is not null then 'volunteer'
+              else null end,
+         m.id, m.sender_type, m.body, m.created_at, m.audio_path,
+         c.staff_typing_at
+  from cases c
+  left join profiles p on p.id = coalesce(c.assigned_counsellor, c.assigned_to)
+  left join case_messages m on m.case_id = c.id
+  where c.access_code = p_access_code
+  order by m.created_at asc nulls last;
+end;
+$$ language plpgsql security definer;
