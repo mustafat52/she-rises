@@ -1140,7 +1140,7 @@
         case_id: caseId, sender_type: senderType, sender_id: currentUser.id, body: text
       });
       if(error) throw error;
-      await sb.from('cases').update({ updated_at: new Date().toISOString() }).eq('id', caseId);
+      await sb.from('cases').update({ updated_at: new Date().toISOString(), staff_typing_at: null }).eq('id', caseId);
     }catch(e){
       console.error(e); showToast('Could not send: ' + (e.message || 'unknown error')); return;
     }

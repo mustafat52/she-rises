@@ -283,7 +283,7 @@
       <div class="chat-messages" id="chatMessages"></div>
       <div class="typing-indicator" id="typingIndicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> typing…</div>
       <div class="chat-input-row" id="chatInputRow">
-        <textarea id="chatInput" placeholder="Type a message…" rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+        <textarea id="chatInput" placeholder="Type a message…" rows="1" oninput="pingSeekerTyping()" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
         <button type="button" class="chat-mic-btn" id="micBtn" onclick="toggleRecording()" title="Record a voice message">🎤</button>
         <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">Send</button>
       </div>
@@ -502,6 +502,18 @@
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  // Debounced — only pings the DB at most once every 3s while she's
+  // actively typing. Actually sending clears this immediately (in
+  // send_message_as_seeker itself), rather than waiting for it to go
+  // stale, which used to leave the indicator lingering on staff's side.
+  let lastSeekerTypingPing = 0;
+  function pingSeekerTyping(){
+    const now = Date.now();
+    if(now - lastSeekerTypingPing < 3000) return;
+    lastSeekerTypingPing = now;
+    sb.rpc('ping_seeker_typing', { p_access_code: currentAccessCode }).then(()=>{}, ()=>{});
   }
 
   async function sendChatMessage(){

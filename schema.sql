@@ -336,7 +336,10 @@ begin
   end if;
   insert into case_messages (case_id, sender_type, body)
   values (v_case_id, 'seeker', p_body);
-  update cases set updated_at = now() where id = v_case_id;
+  -- Clearing seeker_typing_at here, atomically with the send, is what stops
+  -- the "she's typing…" note lingering on staff's side after she's actually
+  -- sent it — same fix as staff_typing_at getting cleared in sendConvReply.
+  update cases set updated_at = now(), seeker_typing_at = null where id = v_case_id;
   return true;
 end;
 $$ language plpgsql security definer;
@@ -1190,6 +1193,22 @@ alter table profiles add column if not exists declined boolean not null default 
 -- she's typing; the seeker's page shows "…is typing" if it's recent, and
 -- it naturally goes stale — no separate "stopped typing" event needed.
 alter table cases add column if not exists staff_typing_at timestamptz;
+
+-- ============================================================
+-- Reverse typing indicator: staff seeing when SHE is typing
+-- ============================================================
+-- Same staleness-based approach as staff_typing_at above, but she's
+-- anonymous with no direct UPDATE permission on `cases` — everything she
+-- does goes through a security-definer function, so this needs its own
+-- RPC rather than a plain client-side update like staff use.
+alter table cases add column if not exists seeker_typing_at timestamptz;
+
+create or replace function ping_seeker_typing(p_access_code text)
+returns void as $$
+begin
+  update cases set seeker_typing_at = now() where access_code = p_access_code;
+end;
+$$ language plpgsql security definer;
 
 drop function if exists get_conversation(text);
 

@@ -906,7 +906,7 @@
       renderConversationList();
       if(activeConvCaseId){
         const still = conversations.find(c=>c.id===activeConvCaseId);
-        if(still) renderConversationThread(still);
+        if(still){ renderConversationThread(still); updateSeekerTypingIndicator(still); }
       }
       const badge = document.getElementById('count-conversations');
       if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
@@ -1008,12 +1008,25 @@
     activeConvCaseId = caseId;
     renderConversationList();
     const c = conversations.find(x=>x.id===caseId);
-    if(c) renderConversationThread(c);
+    if(c){ renderConversationThread(c); updateSeekerTypingIndicator(c); }
     document.getElementById('convWrap').classList.add('thread-open'); // full-screen drill-down on mobile; no-op on desktop
   }
 
   function closeThread(){
     document.getElementById('convWrap').classList.remove('thread-open');
+  }
+
+  // Runs every poll, independent of renderConversationThread's own
+  // rebuild guard — the whole point of that guard is to avoid tearing
+  // down and rebuilding the thread (which would kill any mid-playback
+  // <audio> element) just because something unrelated changed. Toggling
+  // one small, already-existing element's visibility here doesn't touch
+  // any of that, so it can update every poll cycle on its own.
+  function updateSeekerTypingIndicator(c){
+    const el = document.getElementById('seekerTypingNote');
+    if(!el || !c || activeConvCaseId !== c.id) return;
+    const recent = c.seeker_typing_at && (Date.now() - new Date(c.seeker_typing_at).getTime()) < 8000;
+    el.style.display = recent ? 'block' : 'none';
   }
 
   function renderConversationThread(c){
@@ -1051,6 +1064,7 @@
         <button type="button" class="mobile-back-btn" onclick="closeThread()" style="border:none; background:none; color:var(--rose-deep); font-weight:700; font-size:0.9rem; padding:0 0 10px; cursor:pointer; align-items:center; gap:6px;">← Back to conversations</button>
         <h3>${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || 'Anonymous conversation')} <button class="rename-btn" onclick="openRenameModal('${c.id}')" title="Rename">✎</button> <span class="mono" style="font-weight:400; color:var(--ink-soft); font-size:0.8rem;">· ${c.case_ref} · ${statusLabel}</span></h3>
         ${intakeLine ? `<div class="sub" style="margin-top:2px; font-size:0.82rem; color:var(--ink-soft);">${intakeLine}</div>` : ''}
+        <div id="seekerTypingNote" style="display:none; font-size:0.8rem; color:var(--ink-soft); font-style:italic; margin-top:4px;">● ● ● she's typing…</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
           ${renderThreadActions(c, isOwnerSide, isMyCounsellorCase)}
         </div>
@@ -1158,7 +1172,7 @@
         case_id: caseId, sender_type: senderType, sender_id: currentUser.id, body: text
       });
       if(error) throw error;
-      await sb.from('cases').update({ updated_at: new Date().toISOString() }).eq('id', caseId);
+      await sb.from('cases').update({ updated_at: new Date().toISOString(), staff_typing_at: null }).eq('id', caseId);
     }catch(e){
       console.error(e); showToast('Could not send: ' + (e.message || 'unknown error')); return;
     }
