@@ -1234,3 +1234,374 @@ begin
   order by m.created_at asc nulls last;
 end;
 $$ language plpgsql security definer;
+-- ============================================================================
+-- ==========  RECONSTRUCTED SECTION — NOT VERIFIED AGAINST LIVE DB  ==========
+-- ============================================================================
+-- Everything above this line is your original schema.sql, byte-for-byte.
+-- Everything below is reconstructed by reverse-engineering the exact RPC
+-- calls, column names, and RLS-dependent behaviour in the frontend
+-- (dashboard-volunteer.html, dashboard-counsellor.html, dashboard-admin.html,
+-- chat.html). It is NOT a pull from the live Supabase project — treat it as
+-- a best-effort rebuild to diff against the real thing, not a guaranteed
+-- match. Run each block against a staging copy first if possible.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. SENIOR VOLUNTEER ROLE
+-- ----------------------------------------------------------------------------
+-- Confirmed live via: dashboard.html routes it to /dashboard-volunteer;
+-- ALLOWED_ROLES = ['volunteer','super_volunteer'] gate in dashboard-volunteer.html;
+-- shown in UI as "Senior Volunteer".
+alter type user_role add value if not exists 'super_volunteer';
+
+-- ----------------------------------------------------------------------------
+-- 2. STAFF DIRECTORY READ ON PROFILES  (previously undocumented gap)
+-- ----------------------------------------------------------------------------
+-- dashboard-volunteer.html's loadVolunteerList()/loadCounsellorList() populate
+-- dropdowns (e.g. "choose a senior volunteer to transfer to") by reading OTHER
+-- staff members' profile rows. The existing policies ("own profile",
+-- "public counsellor listing", "admin manages profiles") do not cover this —
+-- a plain volunteer has no documented way to see a colleague's row. This adds
+-- the minimum needed: any logged-in staff member can see every staff profile.
+create policy "staff reads team directory" on profiles
+  for select using (current_role_name() in ('volunteer','super_volunteer','counsellor','admin'));
+
+-- ----------------------------------------------------------------------------
+-- 3. SENIOR VOLUNTEER PARITY WITH VOLUNTEER (cases / case_updates / case_messages / counsellor_case_requests)
+-- ----------------------------------------------------------------------------
+-- The existing policies check current_role_name() in ('volunteer','admin')
+-- in several places. Rather than dropping and rewriting those (higher risk
+-- on a live table), this adds supplementary policies granting the same
+-- access to 'super_volunteer', matching how the file already layers new
+-- policies on top of old ones elsewhere (e.g. "counsellors browse pending queue").
+
+create policy "super volunteers see all cases" on cases
+  for select using (current_role_name() = 'super_volunteer');
+create policy "super volunteers insert cases" on cases
+  for insert with check (current_role_name() = 'super_volunteer');
+create policy "super volunteers update cases" on cases
+  for update using (current_role_name() = 'super_volunteer');
+
+create policy "super volunteer reads updates" on case_updates
+  for select using (
+    exists (select 1 from cases c where c.id = case_updates.case_id)
+    and current_role_name() = 'super_volunteer'
+  );
+create policy "super volunteer adds updates" on case_updates
+  for insert with check (current_role_name() = 'super_volunteer');
+
+create policy "super volunteer reads messages" on case_messages
+  for select using (current_role_name() = 'super_volunteer');
+create policy "super volunteer sends messages" on case_messages
+  for insert with check (
+    sender_type = 'volunteer' and current_role_name() = 'super_volunteer'
+  );
+
+create policy "super volunteer reads requests" on counsellor_case_requests
+  for select using (current_role_name() = 'super_volunteer');
+create policy "super volunteer responds to requests" on counsellor_case_requests
+  for update using (current_role_name() = 'super_volunteer');
+
+-- ----------------------------------------------------------------------------
+-- 4. CASE TRANSFER TO / FROM A SENIOR VOLUNTEER
+-- ----------------------------------------------------------------------------
+-- Confirmed exact behaviour from dashboard-volunteer.html's renderConversationThread:
+--   const currentHandlerId = c.transferred_to || c.assigned_to;
+--   const isCurrentHandler = currentUser.role==='admin' || currentHandlerId===currentUser.id;
+--   const canReply = (isOwnerSide && isCurrentHandler) || isMyCounsellorCase;
+-- This proves: assigned_to (the original volunteer) is NEVER changed by a
+-- transfer. Only `transferred_to` is set/cleared. Everyone on the owner side
+-- (volunteer/super_volunteer/admin) can still SELECT the case throughout —
+-- reply-gating is enforced client-side only (per the file's existing pattern
+-- of not restricting staff writes at the RLS layer), so this reconstruction
+-- does the same rather than inventing stricter backend enforcement that
+-- doesn't match how the rest of the schema behaves.
+
+alter table cases add column if not exists transferred_to uuid references profiles(id);
+alter table cases add column if not exists transferred_at timestamptz;
+
+-- ---------- volunteer/super_volunteer/admin transfers a case to a senior volunteer ----------
+create or replace function transfer_case_to_lead(p_case_id uuid, p_actor_id uuid, p_lead_id uuid)
+returns boolean as $$
+begin
+  update cases
+  set transferred_to = p_lead_id, transferred_at = now()
+  where id = p_case_id
+    and transferred_to is null
+    and status not in ('resolved','closed');
+
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- the senior volunteer currently holding it hands it back ----------
+create or replace function transfer_case_back(p_case_id uuid, p_actor_id uuid)
+returns boolean as $$
+begin
+  update cases
+  set transferred_to = null
+  where id = p_case_id
+    and transferred_to = p_actor_id;
+
+  return found;
+end;
+$$ language plpgsql security definer;
+
+-- ---------- push notification on transfer ----------
+-- The UI shows "Transferred — she has been notified", implying the same FCM
+-- push flow as regular assignment. The existing trigger only fires on INSERT
+-- (new case) and on assigned_counsellor changing — it does not cover
+-- transferred_to changing. This extends it. NOT confirmed against the live
+-- trigger definition; if the real one differs, this create-or-replace will
+-- overwrite it, so diff carefully before running on production.
+create or replace function notify_case_assignment() returns trigger as $$
+declare
+  v_webhook_url text;
+  v_webhook_secret text;
+begin
+  select value into v_webhook_url from app_config where key = 'notify_webhook_url';
+  select value into v_webhook_secret from app_config where key = 'notify_webhook_secret';
+  if v_webhook_url is null or v_webhook_url like '%REPLACE-WITH%' then
+    return new;
+  end if;
+
+  if (TG_OP = 'INSERT' and new.assigned_to is not null) then
+    perform net.http_post(
+      url := v_webhook_url,
+      body := jsonb_build_object('profile_id', new.assigned_to, 'case_ref', new.case_ref, 'role', 'volunteer'),
+      headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
+    );
+  end if;
+
+  if (TG_OP = 'UPDATE' and new.assigned_counsellor is not null
+      and new.assigned_counsellor is distinct from old.assigned_counsellor) then
+    perform net.http_post(
+      url := v_webhook_url,
+      body := jsonb_build_object('profile_id', new.assigned_counsellor, 'case_ref', new.case_ref, 'role', 'counsellor'),
+      headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
+    );
+  end if;
+
+  -- NEW: case transferred to a senior volunteer
+  if (TG_OP = 'UPDATE' and new.transferred_to is not null
+      and new.transferred_to is distinct from old.transferred_to) then
+    perform net.http_post(
+      url := v_webhook_url,
+      body := jsonb_build_object('profile_id', new.transferred_to, 'case_ref', new.case_ref, 'role', 'volunteer'),
+      headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
+    );
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+-- (trigger trg_notify_case_assignment already exists and points at this
+-- function name, so no need to recreate the trigger itself.)
+
+-- ----------------------------------------------------------------------------
+-- 5. VOICE MESSAGES FROM THE SEEKER
+-- ----------------------------------------------------------------------------
+-- get_conversation already selects m.audio_path, but case_messages never
+-- actually got that column added anywhere in the original file — this closes
+-- that gap. chat.html uploads the recording to a 'voice-notes' storage
+-- bucket first, then calls send_voice_message_as_seeker with the path.
+
+alter table case_messages add column if not exists audio_path text;
+
+insert into storage.buckets (id, name, public)
+values ('voice-notes', 'voice-notes', false)
+on conflict (id) do nothing;
+
+-- The seeker is anonymous (no auth.uid()), so — unlike counsellor-documents —
+-- there's no user id to scope the folder to. This allows any anon upload into
+-- the bucket; the effective secrecy comes from the unguessable folder name
+-- (currentAccessCode) that chat.html uses as the path prefix, same trust
+-- model as the access_code itself.
+create policy "public uploads voice notes" on storage.objects
+  for insert with check (bucket_id = 'voice-notes');
+
+-- Staff (any role) can read voice notes for playback in the dashboards.
+create policy "staff reads voice notes" on storage.objects
+  for select using (
+    bucket_id = 'voice-notes'
+    and current_role_name() in ('volunteer','super_volunteer','counsellor','admin')
+  );
+
+create or replace function send_voice_message_as_seeker(p_access_code text, p_storage_path text)
+returns boolean as $$
+declare
+  v_case_id uuid;
+begin
+  select id into v_case_id from cases where access_code = p_access_code;
+  if v_case_id is null then
+    return false;
+  end if;
+
+  insert into case_messages (case_id, sender_type, body, audio_path)
+  values (v_case_id, 'seeker', '[Voice message]', p_storage_path);
+
+  update cases set updated_at = now(), seeker_typing_at = null where id = v_case_id;
+  return true;
+end;
+$$ language plpgsql security definer;
+
+-- get_conversation needs to return transferred_to-aware handler info too
+-- (assigned_name/assigned_role currently only look at assigned_counsellor/
+-- assigned_to, never transferred_to — meaning a seeker's chat header would
+-- still show the original volunteer's name even after a transfer). Not
+-- confirmed this gap exists live, but it follows directly from the transfer
+-- feature above, so included for completeness.
+drop function if exists get_conversation(text);
+
+create or replace function get_conversation(p_access_code text)
+returns table(
+  case_ref text, status case_status, severity case_severity,
+  assigned_name text, assigned_role text,
+  message_id uuid, sender_type message_sender, body text, sent_at timestamptz, audio_path text,
+  staff_typing_at timestamptz
+) as $$
+begin
+  return query
+  select c.case_ref, c.status, c.severity, p.full_name,
+         case when c.assigned_counsellor is not null then 'counsellor'
+              else 'volunteer' end,
+         m.id, m.sender_type, m.body, m.created_at, m.audio_path,
+         c.staff_typing_at
+  from cases c
+  left join profiles p on p.id = coalesce(c.assigned_counsellor, c.transferred_to, c.assigned_to)
+  left join case_messages m on m.case_id = c.id
+  where c.access_code = p_access_code
+  order by m.created_at asc nulls last;
+end;
+$$ language plpgsql security definer;
+
+-- ----------------------------------------------------------------------------
+-- 6. ARAZ → AUTO-ASSIGN TO A SENIOR VOLUNTEER (per your last request)
+-- ----------------------------------------------------------------------------
+-- Senior volunteers rejoin the normal round-robin for every category EXCEPT
+-- "Araz" (exact token — distinct from the separate "Dua & Istirshaadan Araz"
+-- checkbox), which skips round-robin and goes straight to the
+-- least-loaded active super_volunteer, falling back to the normal pool if
+-- none is available.
+
+create or replace function start_conversation(p_problem_category text)
+returns table(out_access_code text, out_case_ref text) as $$
+declare
+  v_code text;
+  v_case_id uuid;
+  v_case_ref text;
+  v_assignee uuid;
+  v_is_araz boolean;
+begin
+  v_is_araz := 'Araz' = any(string_to_array(coalesce(p_problem_category, ''), ', '));
+
+  if v_is_araz then
+    select p.id into v_assignee
+    from profiles p
+    where p.role = 'super_volunteer' and p.is_active = true and p.is_away = false
+    order by (
+      select count(*) from cases c
+      where c.assigned_to = p.id and c.status not in ('resolved','closed')
+    ) asc
+    limit 1;
+  end if;
+
+  if v_assignee is null then
+    select p.id into v_assignee
+    from profiles p
+    where p.role in ('volunteer','super_volunteer') and p.is_active = true and p.is_away = false
+    order by (
+      select count(*) from cases c
+      where c.assigned_to = p.id and c.status not in ('resolved','closed')
+    ) asc
+    limit 1;
+  end if;
+
+  v_code := generate_access_code();
+  while exists (select 1 from cases where access_code = v_code) loop
+    v_code := generate_access_code();
+  end loop;
+
+  insert into cases (
+    alias, note, source, status, severity, assigned_to, access_code, problem_category
+  )
+  values (
+    'Anonymous conversation', coalesce(p_problem_category, 'Not specified'), 'chat', 'new', 'standard',
+    v_assignee, v_code, p_problem_category
+  )
+  returning id, case_ref into v_case_id, v_case_ref;
+
+  return query select v_code, v_case_ref;
+end;
+$$ language plpgsql security definer;
+-- ============================================================================
+-- ==================  IMPACT COUNTER (homepage feature)  =====================
+-- ============================================================================
+-- This part IS newly built by us (not reconstructed guesswork like the
+-- section above it) — added for the "women helped" live counter on the
+-- public homepage. Safe to run directly.
+-- ============================================================================
+
+-- ============================================================
+-- PUBLIC "WOMEN HELPED" IMPACT COUNTER
+-- ============================================================
+-- Design recap (per discussion):
+--   - Counts every real chat conversation ever started — i.e. every row
+--     in `cases` with source = 'chat' (created by start_conversation()).
+--     Manually-logged volunteer cases (source = 'manual') do NOT count.
+--   - No baseline offset — starts from the real number, 0 if the table
+--     is empty.
+--   - No test/spam exclusion — counts everything, kept simple.
+--   - True realtime: pushes a live "+1" to the homepage the instant a
+--     new conversation starts, via Supabase's Broadcast-from-Database
+--     (realtime.send), NOT postgres_changes.
+--
+-- Why NOT postgres_changes: `cases` is fully RLS-locked to staff (see
+-- "volunteers see all cases" etc. in schema.sql) — a public/anon
+-- subscriber would receive nothing, or you'd have to loosen RLS on a
+-- table that holds DV/self-harm disclosures, which is not acceptable.
+-- realtime.send() instead sends a bare, contentless event ('a new
+-- conversation happened') with zero row data attached, so nothing
+-- sensitive ever reaches the public homepage.
+-- ============================================================
+
+-- ---------- 1. Public, read-only count (no row data exposed) ----------
+create or replace function get_conversations_helped_count()
+returns bigint as $$
+  select count(*) from cases where source = 'chat';
+$$ language sql stable security definer;
+
+-- security definer bypasses RLS internally, but this only ever returns
+-- a single integer — never exposes any case fields. Grant to anon so the
+-- public homepage (using the anon key, no login) can call it.
+grant execute on function get_conversations_helped_count() to anon, authenticated;
+
+-- ---------- 2. Realtime ping on every new conversation ----------
+create or replace function broadcast_new_conversation() returns trigger as $$
+begin
+  if new.source = 'chat' then
+    perform realtime.send(
+      jsonb_build_object('event', 'new_conversation'),
+      'new_conversation',        -- event name
+      'public:conversations-counter',  -- channel/topic name
+      false                        -- private = false: no Realtime Authorization
+                                    -- policy needed, anon key can subscribe directly.
+                                    -- Safe because the payload carries no row data.
+    );
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger trg_broadcast_new_conversation
+  after insert on cases
+  for each row execute function broadcast_new_conversation();
+
+-- ============================================================
+-- SETUP NOTE (outside this file, needs manual confirmation):
+-- Supabase Realtime must be enabled for this project for
+-- realtime.send()/broadcast to work at all. If the project has ever
+-- been paused, or Realtime was toggled off, re-check it in the Supabase
+-- dashboard under Project Settings → API → Realtime before relying on
+-- this going live automatically.
+-- ============================================================

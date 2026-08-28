@@ -154,6 +154,35 @@
   }
   .muqarnas-divider{width:100%; height:24px; display:block; margin:6px 0;}
 
+  /* ---------- Impact counter badge ---------- */
+  .impact-badge{
+    position:absolute; left:50%; bottom:-24px; transform:translateX(-50%);
+    background:var(--ivory); border:1.5px solid var(--gold-line); border-radius:999px;
+    padding:10px 22px; box-shadow:var(--shadow); display:flex; align-items:center; gap:12px;
+    white-space:nowrap; z-index:2;
+  }
+  .impact-badge .live-dot{
+    width:8px; height:8px; border-radius:50%; background:#2ecc71; flex-shrink:0;
+    box-shadow:0 0 0 0 rgba(46,204,113,0.55); animation:pulseDot 1.8s infinite;
+  }
+  @keyframes pulseDot{
+    0%{box-shadow:0 0 0 0 rgba(46,204,113,0.55);}
+    70%{box-shadow:0 0 0 9px rgba(46,204,113,0);}
+    100%{box-shadow:0 0 0 0 rgba(46,204,113,0);}
+  }
+  .impact-badge .impact-num{
+    font-family:'Fraunces', serif; font-weight:600; font-size:1.5rem; color:var(--rose-deep); line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .impact-badge .impact-lbl{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--ink-soft); margin-top:2px;
+  }
+  @media(max-width:920px){
+    .impact-badge{bottom:-20px; padding:8px 18px;}
+    .impact-badge .impact-num{font-size:1.25rem;}
+  }
+
   /* ---------- Section generic ---------- */
   section{padding:70px 0;}
   section.tinted{
@@ -419,6 +448,13 @@
             <path d="M50 78 C34 65 22 50 22 34 C22 24 30 18 38 21 C43.5 23 47 28 50 33 C53 28 56.5 23 62 21 C70 18 78 24 78 34 C78 50 66 65 50 78 Z" fill="#FFFCF7" opacity="0.95"/>
             <path d="M50 22 C56 10 70 6 78 14" stroke="#FFFCF7" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.8"/>
           </svg>
+        </div>
+        <div class="impact-badge" id="impactBadge" aria-live="polite">
+          <span class="live-dot" aria-hidden="true"></span>
+          <div>
+            <div class="impact-num" id="impactCount">0</div>
+            <div class="impact-lbl">Women Helped</div>
+          </div>
         </div>
       </div>
     </section>
@@ -845,6 +881,48 @@
   function setCounsellorTag(t){ activeCounsellorTag = t; renderCounsellorsPage(); }
   function setCounsellorLoc(l){ activeCounsellorLoc = l; renderCounsellorsPage(); }
 
+  // ---------- Impact counter (women helped) ----------
+  let impactCount = 0;
+
+  function animateCountTo(el, from, to, duration){
+    if(!el) return;
+    duration = duration || 900;
+    if(to <= from){ el.textContent = to; return; }
+    const start = performance.now();
+    function tick(now){
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(from + (to - from) * eased);
+      if(p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  async function loadImpactCount(){
+    try{
+      const { data, error } = await sb.rpc('get_conversations_helped_count');
+      if(error) throw error;
+      impactCount = data || 0;
+      animateCountTo(document.getElementById('impactCount'), 0, impactCount, 1100);
+    }catch(e){
+      console.warn('Could not load impact count', e);
+    }
+  }
+
+  function subscribeImpactCounter(){
+    try{
+      sb.channel('public:conversations-counter', { config: { broadcast: { self: false } } })
+        .on('broadcast', { event: 'new_conversation' }, () => {
+          const el = document.getElementById('impactCount');
+          const from = parseInt((el && el.textContent) || '0', 10);
+          impactCount = Math.max(impactCount, from) + 1;
+          animateCountTo(el, from, impactCount, 500);
+        })
+        .subscribe();
+    }catch(e){
+      console.warn('Could not subscribe to impact counter realtime channel', e);
+    }
+  }
 
   // ---------- Scroll reveal ----------
   function initReveal(){
@@ -857,6 +935,8 @@
 
   loadMedia();
   loadCounsellors();
+  loadImpactCount();
+  subscribeImpactCounter();
   initReveal();
   window.addEventListener('DOMContentLoaded', initReveal);
 </script>
