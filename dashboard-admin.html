@@ -296,24 +296,32 @@
   .conv-item .conv-time{font-size:0.72rem; color:var(--ink-soft); margin-top:3px;}
 
   /* ---------- Conversation groups (conversation-level / queue / counselling) ---------- */
-  .conv-group{margin-bottom:16px;}
+  .conv-group{
+    background:var(--ivory); border:1px solid rgba(196,0,87,0.10); border-top:3px solid var(--group-accent, var(--gold-line));
+    border-radius:10px 10px 14px 14px; padding:0 14px 14px; margin-bottom:18px;
+    box-shadow:0 1px 0 rgba(196,0,87,0.05);
+  }
+  .conv-group[data-group="conversation"]{ --group-accent: var(--gold-line); }
+  .conv-group[data-group="queue"]{ --group-accent: var(--warn); }
+  .conv-group[data-group="counselling"]{ --group-accent: var(--gold); }
   .conv-group-header{
     display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-    padding:6px 4px; user-select:none; border-radius:6px;
+    padding:12px 2px 10px; user-select:none;
   }
-  .conv-group-header:hover{background:var(--ivory-deep);}
+  .conv-group-header:hover{opacity:0.8;}
   .conv-group-title{
-    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em;
-    color:var(--ink-soft); display:flex; align-items:center; gap:8px; font-weight:600;
+    font-family:'IBM Plex Mono',monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;
+    color:var(--ink-soft); display:flex; align-items:center; gap:9px; font-weight:600;
   }
+  .conv-group-dot{ width:8px; height:8px; border-radius:50%; background:var(--group-accent); flex-shrink:0; }
   .conv-group-count{
-    background:var(--ivory-deep); color:var(--rose-deep); border-radius:99px; padding:1px 8px; font-size:0.7rem; font-weight:700;
+    background:rgba(196,0,87,0.08); color:var(--rose-deep); border-radius:99px; padding:1px 9px; font-size:0.7rem; font-weight:700;
   }
-  .conv-group-chevron{ transition:transform .2s; font-size:0.65rem; color:var(--ink-soft); flex-shrink:0; }
+  .conv-group-chevron{ transition:transform .2s; font-size:0.62rem; color:var(--ink-soft); flex-shrink:0; }
   .conv-group.collapsed .conv-group-chevron{ transform:rotate(-90deg); }
   .conv-group.collapsed .conv-group-items{ display:none; }
-  .conv-group-items{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
-  .conv-group-empty{ font-size:0.78rem; color:var(--ink-soft); padding:8px 10px; opacity:0.75; }
+  .conv-group-items{ display:flex; flex-direction:column; gap:8px; padding-bottom:2px; }
+  .conv-group-empty{ font-size:0.78rem; color:var(--ink-soft); padding:10px 4px 14px; opacity:0.75; }
 
   /* ---------- 24h+ unclaimed highlight (only meaningful within the counsellor queue group) ---------- */
   .conv-item.unclaimed-flag{
@@ -686,13 +694,11 @@
       {id:'overview', label:'Overview'},
       {id:'pending', label:'Pending Approvals'},
       {id:'team', label:'Manage Team'},
-      {id:'contributors', label:'Contributors'},
     ];
     const noCountIds = ['overview','team'];
     nav.innerHTML = links.map(l=>`<div class="side-link ${l.id===activeView?'active':''}" data-view="${l.id}" onclick="setView('${l.id}')">
       <span>${l.label}</span>${noCountIds.includes(l.id) ? '' : `<span class="side-count" id="count-${l.id}">0</span>`}
     </div>`).join('');
-    nav.innerHTML += `<a class="side-link" href="/msn-taj" style="display:block; text-decoration:none;"><span>Manage Voices ↗</span></a>`;
   }
 
   function setView(v){
@@ -1067,9 +1073,9 @@
       const body = groupItems.length
         ? `<div class="conv-group-items">${groupItems.map(convItemHTML).join('')}</div>`
         : `<div class="conv-group-items"><div class="conv-group-empty">Nothing here right now.</div></div>`;
-      return `<div class="conv-group ${collapsed?'collapsed':''}">
+      return `<div class="conv-group ${collapsed?'collapsed':''}" data-group="${g.id}">
         <div class="conv-group-header" onclick="toggleConvGroup('${g.id}')">
-          <span class="conv-group-title"><span class="conv-group-chevron">▾</span>${g.title}</span>
+          <span class="conv-group-title"><span class="conv-group-chevron">▾</span><span class="conv-group-dot"></span>${g.title}</span>
           <span class="conv-group-count">${groupItems.length}</span>
         </div>
         ${body}
