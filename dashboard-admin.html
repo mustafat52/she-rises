@@ -279,7 +279,7 @@
 
   /* ---------- Conversations (chat) view ---------- */
   .conv-wrap{display:grid; grid-template-columns:320px 1fr; gap:20px; height:calc(100vh - 220px); min-height:420px;}
-  .conv-list{overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:6px;}
+  .conv-list{display:flex; flex-direction:column; gap:0; padding-right:6px;}
   .conv-item{
     background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:12px; padding:14px; cursor:pointer;
     transition:background .15s, border-color .15s;
@@ -320,7 +320,7 @@
   .conv-group-chevron{ transition:transform .2s; font-size:0.62rem; color:var(--ink-soft); flex-shrink:0; }
   .conv-group.collapsed .conv-group-chevron{ transform:rotate(-90deg); }
   .conv-group.collapsed .conv-group-items{ display:none; }
-  .conv-group-items{ display:flex; flex-direction:column; gap:8px; padding-bottom:2px; }
+  .conv-group-items{ display:flex; flex-direction:column; gap:8px; padding-bottom:2px; max-height:280px; overflow-y:auto; padding-right:4px; }
   .conv-group-empty{ font-size:0.78rem; color:var(--ink-soft); padding:10px 4px 14px; opacity:0.75; }
 
   /* ---------- 24h+ unclaimed highlight (only meaningful within the counsellor queue group) ---------- */
@@ -442,10 +442,10 @@
     </div>
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
-      <div id="convListPanel" style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+      <div id="convListPanel" style="display:flex; flex-direction:column; height:100%; overflow-y:auto;">
         <input type="text" id="convSearchInput" placeholder="Search by name or case ref…" oninput="renderConversationList()"
-          style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:10px; flex-shrink:0; background:#fff;">
-        <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0;"></div>
+          style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:10px; flex-shrink:0; background:#fff; position:sticky; top:0; z-index:2;">
+        <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0; position:sticky; top:44px; z-index:2; background:var(--ivory); padding-top:2px; padding-bottom:2px;"></div>
         <div class="conv-list" id="convList" style="flex:1;"><div class="loading-row">Loading conversations…</div></div>
       </div>
       <div class="conv-thread" id="convThread">
