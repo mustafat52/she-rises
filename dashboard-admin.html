@@ -295,6 +295,36 @@
   .conv-item .conv-preview{font-size:0.84rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .conv-item .conv-time{font-size:0.72rem; color:var(--ink-soft); margin-top:3px;}
 
+  /* ---------- Conversation groups (conversation-level / queue / counselling) ---------- */
+  .conv-group{margin-bottom:16px;}
+  .conv-group-header{
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+    padding:6px 4px; user-select:none; border-radius:6px;
+  }
+  .conv-group-header:hover{background:var(--ivory-deep);}
+  .conv-group-title{
+    font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--ink-soft); display:flex; align-items:center; gap:8px; font-weight:600;
+  }
+  .conv-group-count{
+    background:var(--ivory-deep); color:var(--rose-deep); border-radius:99px; padding:1px 8px; font-size:0.7rem; font-weight:700;
+  }
+  .conv-group-chevron{ transition:transform .2s; font-size:0.65rem; color:var(--ink-soft); flex-shrink:0; }
+  .conv-group.collapsed .conv-group-chevron{ transform:rotate(-90deg); }
+  .conv-group.collapsed .conv-group-items{ display:none; }
+  .conv-group-items{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .conv-group-empty{ font-size:0.78rem; color:var(--ink-soft); padding:8px 10px; opacity:0.75; }
+
+  /* ---------- 24h+ unclaimed highlight (only meaningful within the counsellor queue group) ---------- */
+  .conv-item.unclaimed-flag{
+    border-left:3px solid var(--danger); background:var(--danger-soft);
+  }
+  .conv-item.unclaimed-flag:hover{ background:#F2C9C9; }
+  .conv-unclaimed-badge{
+    display:inline-flex; align-items:center; gap:3px; font-family:'IBM Plex Mono',monospace; font-size:0.6rem;
+    text-transform:uppercase; letter-spacing:0.03em; color:var(--danger); font-weight:700; margin-left:6px;
+  }
+
   .conv-thread{background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:16px; display:flex; flex-direction:column; overflow:hidden;}
   .conv-empty{margin:auto; color:var(--ink-soft); font-size:0.92rem; text-align:center; padding:40px;}
   .mobile-back-btn{display:none;}
@@ -924,8 +954,10 @@
   function renderConvFilterChips(){
     const wrap = document.getElementById('convFilterChips');
     if(!wrap) return;
+    // "Needs Assignment (24h+)" used to be a chip here — it's now a highlight
+    // (red left border + badge) directly inside the "Listed for Counsellors"
+    // group below, so it doesn't need its own toggle anymore.
     const chips = [{id:'all', label:'All'}, {id:'crisis', label:'Crisis'}, {id:'high', label:'High Priority'}];
-    chips.push({id:'unclaimed', label:'Needs Assignment (24h+)'});
     const signature = convFilter + '|' + chips.map(c=>c.id).join(',');
     if(signature === lastRenderedChipsSignature) return;
     lastRenderedChipsSignature = signature;
@@ -937,8 +969,7 @@
 
   function filteredConversations(){
     let list = conversations;
-    if(convFilter==='unclaimed') list = list.filter(isUnclaimed24h);
-    else if(convFilter==='crisis') list = list.filter(c=>c.severity==='crisis');
+    if(convFilter==='crisis') list = list.filter(c=>c.severity==='crisis');
     else if(convFilter==='high') list = list.filter(c=>c.severity==='high');
     const searchEl = document.getElementById('convSearchInput');
     const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
@@ -962,6 +993,46 @@
 
   let lastRenderedListSignature = null;
 
+  // ---------- Admin-only grouping: conversation level / listed for counsellors / under counselling ----------
+  // Derived entirely from existing fields — no new columns needed:
+  //   - a counsellor is actively on it  ->  assigned_counsellor is set
+  //   - otherwise, sitting in the open queue waiting for one  ->  status === 'pending_counsellor'
+  //   - otherwise, still a live volunteer conversation  ->  everything else (new/triaged/in_progress)
+  const CONV_GROUPS = [
+    {id:'conversation', title:'Conversation Level', test:c => !c.assigned_counsellor && c.status !== 'pending_counsellor'},
+    {id:'queue',         title:'Listed for Counsellors', test:c => !c.assigned_counsellor && c.status === 'pending_counsellor'},
+    {id:'counselling',   title:'Under Counselling', test:c => !!c.assigned_counsellor},
+  ];
+  let collapsedConvGroups = {}; // groupId -> bool, all expanded by default
+
+  function toggleConvGroup(groupId){
+    collapsedConvGroups[groupId] = !collapsedConvGroups[groupId];
+    lastRenderedListSignature = null; // force re-render since signature doesn't track collapse state
+    renderConversationList();
+  }
+
+  function convItemHTML(c){
+    let preview, time;
+    if(currentUser.role==='counsellor'){
+      preview = c.problem_category || c.escalation_note || '(no summary yet)';
+      time = c.escalated_at ? timeAgo(new Date(c.escalated_at).getTime()) : '';
+    } else {
+      const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+      const last = msgs[msgs.length-1];
+      preview = last ? last.body : '(no messages yet)';
+      time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
+    }
+    const isUnclaimed = isUnclaimed24h(c);
+    return `<div class="conv-item ${c.id===activeConvCaseId?'active':''} ${isUnclaimed?'unclaimed-flag':''}" onclick="selectConversation('${c.id}')">
+      <div class="conv-item-top">
+        <span class="conv-ref">${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || c.case_ref)}${isUnclaimed ? '<span class="conv-unclaimed-badge">24h+</span>' : ''}</span>
+        <span class="conv-sev ${c.severity}"></span>
+      </div>
+      <div class="conv-preview">${preview}</div>
+      <div class="conv-time">${time}${c.transferred_to ? ' · Transferred' : ''}</div>
+    </div>`;
+  }
+
   function renderConversationList(){
     const list = document.getElementById('convList');
     const items = filteredConversations();
@@ -972,34 +1043,36 @@
     // was hovering a button in the list right as a poll landed, that DOM
     // node got replaced out from under the cursor.
     const searchVal = document.getElementById('convSearchInput')?.value || '';
-    const signature = convFilter + '|' + searchVal + '|' + activeConvCaseId + '|' + items.map(c => {
+    const signature = convFilter + '|' + searchVal + '|' + activeConvCaseId + '|'
+      + JSON.stringify(collapsedConvGroups) + '|' + items.map(c => {
       const msgs = c.case_messages || [];
       const lastMsg = msgs.length ? msgs[msgs.length-1] : null;
-      return [c.id, c.status, msgs.length, lastMsg ? lastMsg.id : '', c.transferred_to||'', c.escalated_at||''].join(':');
+      return [c.id, c.status, c.assigned_counsellor||'', msgs.length, lastMsg ? lastMsg.id : '', c.transferred_to||'', c.escalated_at||''].join(':');
     }).join(',');
     if(signature === lastRenderedListSignature) return;
     lastRenderedListSignature = signature;
 
     if(!items.length){ list.innerHTML = '<div class="loading-row">Nothing here right now.</div>'; return; }
-    list.innerHTML = items.map(c=>{
-      let preview, time;
-      if(currentUser.role==='counsellor'){
-        preview = c.problem_category || c.escalation_note || '(no summary yet)';
-        time = c.escalated_at ? timeAgo(new Date(c.escalated_at).getTime()) : '';
-      } else {
-        const msgs = (c.case_messages||[]).slice().sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
-        const last = msgs[msgs.length-1];
-        preview = last ? last.body : '(no messages yet)';
-        time = last ? timeAgo(new Date(last.created_at).getTime()) : '';
-      }
-      const isUnclaimed = isUnclaimed24h(c);
-      return `<div class="conv-item ${c.id===activeConvCaseId?'active':''}" onclick="selectConversation('${c.id}')">
-        <div class="conv-item-top">
-          <span class="conv-ref">${(c.alias && c.alias!=='Anonymous conversation' && c.alias!==c.seeker_name) ? c.alias : (c.seeker_name || c.case_ref)}</span>
-          <span class="conv-sev ${c.severity}"></span>
+
+    // Admin gets the three-group layout; other roles keep a flat list (their
+    // own dashboards already scope what they see, so grouping wasn't asked for there).
+    if(currentUser.role !== 'admin'){
+      list.innerHTML = items.map(convItemHTML).join('');
+      return;
+    }
+
+    list.innerHTML = CONV_GROUPS.map(g=>{
+      const groupItems = items.filter(g.test);
+      const collapsed = !!collapsedConvGroups[g.id];
+      const body = groupItems.length
+        ? `<div class="conv-group-items">${groupItems.map(convItemHTML).join('')}</div>`
+        : `<div class="conv-group-items"><div class="conv-group-empty">Nothing here right now.</div></div>`;
+      return `<div class="conv-group ${collapsed?'collapsed':''}">
+        <div class="conv-group-header" onclick="toggleConvGroup('${g.id}')">
+          <span class="conv-group-title"><span class="conv-group-chevron">▾</span>${g.title}</span>
+          <span class="conv-group-count">${groupItems.length}</span>
         </div>
-        <div class="conv-preview">${preview}</div>
-        <div class="conv-time">${time}${isUnclaimed ? ' · Unclaimed 24h+' : ''}${c.transferred_to ? ' · Transferred' : ''}</div>
+        ${body}
       </div>`;
     }).join('');
   }
