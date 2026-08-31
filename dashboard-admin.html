@@ -114,6 +114,7 @@
   .app-status-badge.approved{background:var(--teal-soft); color:var(--teal);}
   .app-status-badge.rejected{background:var(--danger-soft); color:var(--danger);}
   .app-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; margin:14px 0; font-size:0.88rem;}
+  @media(max-width:600px){ .app-grid{grid-template-columns:1fr;} }
   .app-grid dt{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; color:var(--gold); margin-bottom:2px;}
   .app-grid dd{color:var(--ink);}
   .app-statement{background:var(--ivory-deep); border-radius:10px; padding:14px 16px; font-size:0.9rem; color:var(--ink); margin:12px 0; line-height:1.6;}
@@ -295,18 +296,23 @@
   .conv-item .conv-preview{font-size:0.84rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .conv-item .conv-time{font-size:0.72rem; color:var(--ink-soft); margin-top:3px;}
 
-  /* ---------- Conversation groups (conversation-level / queue / counselling) ---------- */
+  /* ---------- Conversation groups (conversation-level / queue / counselling) ----------
+     No internal scroll on .conv-group-items — the whole #convListPanel scrolls as one
+     region (see .conv-list-sticky below). A scroll-within-a-scroll was the main
+     complaint here; removing it keeps the visual section separation without the
+     nested-scrollbar problem. Chrome kept deliberately light (no box-shadow, a
+     thinner accent border, tighter spacing) since 320px is narrow for three stacked
+     cards worth of borders/badges/counts. */
   .conv-group{
-    background:var(--ivory); border:1px solid rgba(196,0,87,0.10); border-top:3px solid var(--group-accent, var(--gold-line));
-    border-radius:10px 10px 14px 14px; padding:0 14px 14px; margin-bottom:18px;
-    box-shadow:0 1px 0 rgba(196,0,87,0.05);
+    background:var(--ivory); border:1px solid rgba(196,0,87,0.10); border-top:2px solid var(--group-accent, var(--gold-line));
+    border-radius:8px 8px 12px 12px; padding:0 12px 10px; margin-bottom:12px;
   }
   .conv-group[data-group="conversation"]{ --group-accent: var(--gold-line); }
   .conv-group[data-group="queue"]{ --group-accent: var(--warn); }
   .conv-group[data-group="counselling"]{ --group-accent: var(--gold); }
   .conv-group-header{
     display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-    padding:12px 2px 10px; user-select:none;
+    padding:9px 2px 8px; user-select:none;
   }
   .conv-group-header:hover{opacity:0.8;}
   .conv-group-title{
@@ -320,8 +326,17 @@
   .conv-group-chevron{ transition:transform .2s; font-size:0.62rem; color:var(--ink-soft); flex-shrink:0; }
   .conv-group.collapsed .conv-group-chevron{ transform:rotate(-90deg); }
   .conv-group.collapsed .conv-group-items{ display:none; }
-  .conv-group-items{ display:flex; flex-direction:column; gap:8px; padding-bottom:2px; max-height:280px; overflow-y:auto; padding-right:4px; }
+  .conv-group-items{ display:flex; flex-direction:column; gap:8px; padding-bottom:2px; }
   .conv-group-empty{ font-size:0.78rem; color:var(--ink-soft); padding:10px 4px 14px; opacity:0.75; }
+
+  /* Search input + filter chips stick together as one block at the top of
+     #convListPanel — a single sticky container (top:0, no offset to guess)
+     instead of two elements each stickied at a separately-estimated top
+     value, which is what caused a gap/overlap risk before. */
+  .conv-list-sticky{
+    position:sticky; top:0; z-index:2; background:var(--ivory); padding-bottom:8px; flex-shrink:0;
+  }
+  .conv-list-sticky .filter-row{ margin-bottom:0; }
 
   /* ---------- 24h+ unclaimed highlight (only meaningful within the counsellor queue group) ---------- */
   .conv-item.unclaimed-flag{
@@ -443,9 +458,11 @@
 
     <div class="conv-wrap" id="convWrap" style="display:none;">
       <div id="convListPanel" style="display:flex; flex-direction:column; height:100%; overflow-y:auto;">
-        <input type="text" id="convSearchInput" placeholder="Search by name or case ref…" oninput="renderConversationList()"
-          style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:10px; flex-shrink:0; background:#fff; position:sticky; top:0; z-index:2;">
-        <div class="filter-row" id="convFilterChips" style="display:none; margin-bottom:10px; flex-shrink:0; position:sticky; top:44px; z-index:2; background:var(--ivory); padding-top:2px; padding-bottom:2px;"></div>
+        <div class="conv-list-sticky">
+          <input type="text" id="convSearchInput" placeholder="Search by name or case ref…" oninput="renderConversationList()"
+            style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:10px; background:#fff;">
+          <div class="filter-row" id="convFilterChips" style="display:none;"></div>
+        </div>
         <div class="conv-list" id="convList" style="flex:1;"><div class="loading-row">Loading conversations…</div></div>
       </div>
       <div class="conv-thread" id="convThread">
