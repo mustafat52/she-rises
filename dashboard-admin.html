@@ -387,20 +387,28 @@
 
 
   @media(max-width:860px){
-    #app.active{grid-template-columns:1fr; grid-template-rows:auto 1fr;}
+    /* Admin's desktop shell is intentionally a horizontal top-bar console
+       (see the app-shell comment above) — not a sidebar. But collapsing
+       that same row layout onto a narrow phone just crams brand + user +
+       5 nav links + sign-out into one wrapped strip, which is what was
+       reported as congested. On mobile, admin gets the same treatment as
+       the volunteer/counsellor sidebar instead: a full-width vertical
+       stack, in admin's own light theme, with main pushed below it. */
     aside{
-      flex-direction:row; flex-wrap:wrap; align-items:center;
-      padding:14px 16px; gap:10px 16px;
+      flex-direction:column; align-items:stretch; flex-wrap:nowrap;
+      padding:24px 20px; gap:0; min-height:100vh; min-height:100dvh;
+      border-bottom:none;
     }
-    .side-brand{margin-bottom:0; flex-shrink:0;}
-    .side-user{display:none;}
-    #awayToggleWrap{margin-bottom:0 !important; margin-left:auto; flex-shrink:0;}
+    .side-brand{margin-bottom:24px;}
+    .side-user{
+      background:rgba(196,0,87,0.06); border-radius:14px; padding:14px 16px; margin-bottom:20px;
+    }
+    #awayToggleWrap{margin-left:0;}
     .side-nav{
-      flex-direction:row; flex-wrap:nowrap; overflow-x:auto; gap:8px;
-      width:100%; padding-bottom:2px;
+      flex-direction:column; flex-wrap:nowrap; overflow-x:visible; width:100%; gap:4px;
     }
-    .side-nav .side-link{flex-shrink:0; white-space:nowrap;}
-    main{padding:24px 18px;}
+    .side-nav .side-link{flex-shrink:0; white-space:normal; width:100%;}
+    main{padding:24px 18px; max-height:none;}
   }
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>

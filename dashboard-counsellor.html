@@ -322,19 +322,13 @@
 
 
   @media(max-width:860px){
-    #app.active{grid-template-columns:1fr; grid-template-rows:auto 1fr;}
-    aside{
-      flex-direction:row; flex-wrap:wrap; align-items:center;
-      padding:14px 16px; gap:10px 16px;
-    }
-    .side-brand{margin-bottom:0; flex-shrink:0;}
-    .side-user{display:none;}
-    #awayToggleWrap{margin-bottom:0 !important; margin-left:auto; flex-shrink:0;}
-    .side-nav{
-      flex-direction:row; flex-wrap:nowrap; overflow-x:auto; gap:8px;
-      width:100%; padding-bottom:2px;
-    }
-    .side-nav .side-link{flex-shrink:0; white-space:nowrap;}
+    /* Sidebar stays vertical on mobile too — same look as desktop, just
+       full-width and stacked above main (the page scrolls) instead of a
+       250px column beside it. This replaces the previous collapse into a
+       horizontal topbar, which was cramped once there were more than a
+       couple of nav items. */
+    #app.active{grid-template-columns:1fr; grid-template-rows:auto auto;}
+    aside{min-height:100vh; min-height:100dvh;}
     main{padding:24px 18px;}
   }
 </style>
