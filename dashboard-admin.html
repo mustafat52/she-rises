@@ -82,6 +82,13 @@
   }
   .logout-btn:hover{background:var(--rose-soft);}
 
+  /* Hidden by default — the @media(max-width:860px) block below is the only
+     place that turns these on. Without this, a <button>/<div> with no
+     display rule at wider widths falls back to the browser default (visible),
+     which is why the hamburger was showing up on desktop. */
+  .mobile-menu-btn{display:none;}
+  .sidebar-backdrop{display:none;}
+
   main{padding:30px 40px; overflow-y:auto; max-height:calc(100vh - 64px);}
   .main-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:26px; gap:20px; flex-wrap:wrap;}
   .main-head h1{font-size:1.6rem;}

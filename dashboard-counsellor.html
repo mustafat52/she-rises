@@ -76,6 +76,13 @@
   }
   .logout-btn:hover{background:rgba(255,255,255,0.18);}
 
+  /* Hidden by default — the @media(max-width:860px) block below is the only
+     place that turns these on. Without this, a <button>/<div> with no
+     display rule at wider widths falls back to the browser default (visible),
+     which is why the hamburger was showing up on desktop. */
+  .mobile-menu-btn{display:none;}
+  .sidebar-backdrop{display:none;}
+
   main{padding:34px 40px; overflow-y:auto; max-height:100vh;}
   .main-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:26px; gap:20px; flex-wrap:wrap;}
   .main-head h1{font-size:1.6rem;}
@@ -612,7 +619,7 @@
   function buildSideNav(){
     const nav = document.getElementById('sideNav');
     const links = [
-      {id:'conversations', label:'Conversations'},
+      {id:'conversations', label:'Case Queue'},
       {id:'mine', label:'My Cases'},
       {id:'resolved', label:'Resolved'},
     ];
@@ -722,8 +729,13 @@
         const still = conversations.find(c=>c.id===activeConvCaseId);
         if(still) renderConversationThread(still);
       }
-      const badge = document.getElementById('count-conversations');
-      if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+      // Single source of truth for all three sidebar badges — this used to
+      // also set count-conversations itself, with a different formula
+      // (all non-resolved cases) than updateCounts() uses (queue only).
+      // Since this runs every 8s via polling, that meant the two competing
+      // formulas kept overwriting each other — the badge flickering between
+      // two different numbers. updateCounts() now owns it exclusively.
+      updateCounts();
     }catch(e){
       console.error('Could not load conversations', e);
       document.getElementById('convList').innerHTML = `<div class="loading-row">Could not load conversations — ${escapeConvHtml((e && e.message) || 'unknown error')}</div>`;
