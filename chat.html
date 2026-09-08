@@ -332,13 +332,18 @@
     document.getElementById('intakeProblemOther').style.display = otherChecked ? 'block' : 'none';
   }
 
+  let startConversationInFlight = false;
   async function startConversation(){
+    if(startConversationInFlight) return; // already submitting — ignore extra taps
     const otherText = document.getElementById('intakeProblemOther').value.trim();
     const problem = Array.from(document.querySelectorAll('#problemPanel input[type=checkbox]:checked')).map(c=>{
       if(c.value === 'Other') return otherText ? `Other: ${otherText}` : 'Other';
       return c.value;
     }).join(', ');
     if(!problem){ showToast('Please choose what this is about'); return; }
+    const btn = document.querySelector('.starter-send');
+    startConversationInFlight = true;
+    if(btn){ btn.disabled = true; btn.textContent = 'Starting…'; }
     try{
       const { data, error } = await sb.rpc('start_conversation', { p_problem_category: problem });
       if(error) throw error;
@@ -350,6 +355,9 @@
     }catch(e){
       console.error(e);
       showToast('Something went wrong — please try again');
+    }finally{
+      startConversationInFlight = false;
+      if(btn){ btn.disabled = false; btn.textContent = 'Start conversation'; }
     }
   }
 
@@ -713,14 +721,30 @@
     // not reliably deliver new messages to her. Polling is the honest,
     // reliable choice here instead.
     if(pollInterval) clearInterval(pollInterval);
-    pollInterval = setInterval(async () => {
-      try{
-        const { data, error } = await sb.rpc('get_conversation', { p_access_code: currentAccessCode });
-        if(error || !data) return;
-        renderConversation(data);
-      }catch(e){ /* silent — next poll will retry */ }
-    }, 6000);
+    pollInterval = setInterval(pollForNewMessages, 6000);
   }
+
+  async function pollForNewMessages(){
+    try{
+      const { data, error } = await sb.rpc('get_conversation', { p_access_code: currentAccessCode });
+      if(error || !data) return;
+      renderConversation(data);
+    }catch(e){ /* silent — next poll will retry */ }
+  }
+
+  // A backgrounded tab (screen locked, switched apps) doesn't need to poll
+  // every 6s — pause while hidden, and catch up immediately (plus re-arm
+  // the interval) the moment it's visible again.
+  let chatPollPausedByVisibility = false;
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      if(pollInterval){ clearInterval(pollInterval); pollInterval = null; chatPollPausedByVisibility = true; }
+    }else if(chatPollPausedByVisibility){
+      chatPollPausedByVisibility = false;
+      pollForNewMessages();
+      if(!pollInterval) pollInterval = setInterval(pollForNewMessages, 6000);
+    }
+  });
 
   function showToast(msg){
     const t = document.getElementById('toast');

@@ -969,6 +969,19 @@
   let conversations = [];
   let activeConvCaseId = null;
   let convPollInterval = null;
+  // Polling every 8s per open tab adds up fast at scale — a tab sitting
+  // backgrounded/minimized doesn't need live updates, so pause the interval
+  // while hidden and catch up immediately (which also re-arms it) when the
+  // tab comes back into view.
+  let convPollPausedByVisibility = false;
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      if(convPollInterval){ clearInterval(convPollInterval); convPollInterval = null; convPollPausedByVisibility = true; }
+    }else if(convPollPausedByVisibility){
+      convPollPausedByVisibility = false;
+      loadConversations();
+    }
+  });
   let convFilter = 'all'; // all | mine | queue | unclaimed  (which chips apply depends on role)
   // Signature of what's currently rendered in the thread panel — lets the 8s
   // poll skip re-rendering (and destroying any mid-playback <audio> elements)
@@ -988,10 +1001,16 @@
       // RLS already scopes this correctly per role: volunteers/admins see every
       // chat case; counsellors see only the open pending_counsellor queue plus
       // whatever's assigned to them — no client-side filtering needed.
+      // .limit(500): without this, every poll pulls every case ever created
+      // (with its *entire* message + update history nested in) — fine at
+      // dozens of cases, a real cost/latency problem once volume grows past
+      // that. 500 is generous headroom for a while; if the platform outgrows
+      // it, this should become real pagination instead of a bigger number.
       const { data, error } = await sb.from('cases')
         .select('*, case_messages(id, sender_type, body, audio_path, created_at), case_updates(id, note, created_at, author_id)')
         .eq('source', 'chat')
-        .order('updated_at', { ascending:false });
+        .order('updated_at', { ascending:false })
+        .limit(500);
       if(error) throw error;
       conversations = data || [];
       renderConvFilterChips();
@@ -1000,8 +1019,12 @@
         const still = conversations.find(c=>c.id===activeConvCaseId);
         if(still){ renderConversationThread(still); updateSeekerTypingIndicator(still); }
       }
-      const badge = document.getElementById('count-conversations');
-      if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+      // Was a second, separately-maintained copy of the same formula as
+      // updateCounts() below — harmless while the two agreed, but this
+      // exact duplication pattern is what caused the badge to flicker
+      // between two different numbers on the counsellor dashboard. One
+      // source of truth instead.
+      updateCounts();
     }catch(e){
       console.error('Could not load conversations', e);
       document.getElementById('convList').innerHTML = `<div class="loading-row">Could not load conversations — ${escapeConvHtml((e && e.message) || 'unknown error')}</div>`;

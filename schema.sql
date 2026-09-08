@@ -1358,6 +1358,7 @@ create or replace function notify_case_assignment() returns trigger as $$
 declare
   v_webhook_url text;
   v_webhook_secret text;
+  v_counsellor_id uuid;
 begin
   select value into v_webhook_url from app_config where key = 'notify_webhook_url';
   select value into v_webhook_secret from app_config where key = 'notify_webhook_secret';
@@ -1380,6 +1381,28 @@ begin
       body := jsonb_build_object('profile_id', new.assigned_counsellor, 'case_ref', new.case_ref, 'role', 'counsellor'),
       headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
     );
+  end if;
+
+  -- Case just entered the open counsellor queue (escalate_case_to_counsellor_queue
+  -- sets status = 'pending_counsellor' but never touches assigned_counsellor,
+  -- since it's not assigned to anyone specific yet — first-come claim). The
+  -- block above only fires once someone actually claims it, so until now no
+  -- one was told a case was waiting at all; a counsellor only found out by
+  -- happening to check the queue herself. Notify every active counsellor
+  -- once, at the moment of escalation. Guarded on the status *transition*
+  -- (old.status wasn't already pending_counsellor) so this doesn't refire
+  -- on every later edit while the case sits in the queue.
+  if (TG_OP = 'UPDATE' and new.status = 'pending_counsellor'
+      and old.status is distinct from 'pending_counsellor') then
+    for v_counsellor_id in
+      select id from profiles where role = 'counsellor' and is_active = true and is_away = false
+    loop
+      perform net.http_post(
+        url := v_webhook_url,
+        body := jsonb_build_object('profile_id', v_counsellor_id, 'case_ref', new.case_ref, 'role', 'counsellor'),
+        headers := jsonb_build_object('Content-Type','application/json','x-webhook-secret', v_webhook_secret)
+      );
+    end loop;
   end if;
 
   -- NEW: case transferred to a senior volunteer
@@ -1495,6 +1518,14 @@ declare
 begin
   v_is_araz := 'Araz' = any(string_to_array(coalesce(p_problem_category, ''), ', '));
 
+  -- FOR UPDATE SKIP LOCKED (not just SELECT ... ORDER BY count LIMIT 1):
+  -- without this, concurrent calls each read the same "currently least
+  -- busy" count before any of them commit, so a burst of simultaneous
+  -- signups (e.g. launch-day traffic) could all pick the *same* volunteer
+  -- and stack a dozen cases on her at once instead of spreading out. This
+  -- locks the picked profile row for the rest of this transaction, so a
+  -- second concurrent call skips it and picks the next-least-busy one
+  -- instead — the standard "SELECT FOR UPDATE SKIP LOCKED" queue pattern.
   if v_is_araz then
     select p.id into v_assignee
     from profiles p
@@ -1503,6 +1534,7 @@ begin
       select count(*) from cases c
       where c.assigned_to = p.id and c.status not in ('resolved','closed')
     ) asc
+    for update skip locked
     limit 1;
   end if;
 
@@ -1514,6 +1546,7 @@ begin
       select count(*) from cases c
       where c.assigned_to = p.id and c.status not in ('resolved','closed')
     ) asc
+    for update skip locked
     limit 1;
   end if;
 
