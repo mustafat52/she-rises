@@ -651,7 +651,12 @@
 
   function updateCounts(){
     const badge = document.getElementById('count-conversations');
-    if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+    // Excludes 'assigned' too, not just resolved/closed — once a counsellor
+    // has accepted the case, it's no longer an active volunteer<->seeker
+    // conversation, even though it's still visible in the list below for
+    // her to check on. Matches the same volunteer-only definition applied
+    // to the Ops Monitor and the "escalated & accepted" note there.
+    if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed' && c.status!=='assigned').length;
   }
 
   function escapeConvHtml(str){
@@ -767,9 +772,13 @@
     }
   }
 
-  function renderThreadActions(c, isOwnerSide, isMyCounsellorCase){
+  function renderThreadActions(c, isOwnerSide, isMyCounsellorCase, isCurrentHandler){
     const btns = [];
-    if(isOwnerSide){
+    // Escalating and closing are now restricted to whoever the case is
+    // actually assigned to (or transferred to, or an admin) — same rule
+    // replying already uses. Previously any volunteer could act on any
+    // other volunteer's case here, which wasn't intentional.
+    if(isOwnerSide && isCurrentHandler){
       if(c.status === 'new' || c.status === 'triaged'){
         btns.push(`<button class="act-btn" onclick="openEscalateModal('${c.id}')">Escalate to Counsellor</button>`);
         btns.push(`<button class="act-btn" onclick="openCloseModal('${c.id}','volunteer')">Close Case</button>`);
@@ -781,6 +790,8 @@
       } else if(c.status === 'resolved' || c.status === 'closed'){
         btns.push(`<button class="act-btn" onclick="reopenCase('${c.id}')">Reopen Case</button>`);
       }
+    }
+    if(isOwnerSide){
       // ---------- transfer to a senior volunteer ----------
       const notYetWithCounsellor = c.status === 'new' || c.status === 'triaged' || c.status === 'pending_counsellor';
       const availableLeads = volunteerList.filter(v => v.role === 'super_volunteer' && v.id !== currentUser.id);
@@ -1032,7 +1043,7 @@
         ${intakeLine ? `<div class="sub" style="margin-top:2px; font-size:0.82rem; color:var(--ink-soft);">${intakeLine}</div>` : ''}
         <div id="seekerTypingNote" style="display:none; font-size:0.8rem; color:var(--ink-soft); font-style:italic; margin-top:4px;">● ● ● she's typing…</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-          ${renderThreadActions(c, isOwnerSide, isMyCounsellorCase)}
+          ${renderThreadActions(c, isOwnerSide, isMyCounsellorCase, isCurrentHandler)}
         </div>
       </div>
       ${renderRequestPanel(c, isOwnerSide)}

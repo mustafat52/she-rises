@@ -810,7 +810,12 @@
 
   function updateCounts(){
     const badge = document.getElementById('count-conversations');
-    if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed').length;
+    // Excludes 'assigned' too, not just resolved/closed — once a counsellor
+    // has accepted the case, it's no longer an active volunteer<->seeker
+    // conversation, even though it's still visible in the list below to
+    // check on. Matches the same volunteer-only definition applied to the
+    // Ops Monitor and the "escalated & accepted" note there.
+    if(badge) badge.textContent = conversations.filter(c=>c.status!=='resolved' && c.status!=='closed' && c.status!=='assigned').length;
   }
 
   function escapeConvHtml(str){

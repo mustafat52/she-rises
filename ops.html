@@ -36,7 +36,7 @@
   header p{color:var(--ink-soft); font-size:0.9rem; margin-top:4px;}
   .refresh-note{font-size:0.78rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
 
-  .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:30px;}
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; margin-bottom:30px;}
   .stat-card{background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:12px; padding:16px 18px;}
   .stat-card .num{font-family:'Fraunces',serif; font-size:1.8rem; color:var(--rose-deep);}
   .stat-card .label{font-size:0.78rem; color:var(--ink-soft); margin-top:2px;}
@@ -47,6 +47,7 @@
   tr:last-child td{border-bottom:none;}
   .code{font-family:'IBM Plex Mono',monospace; font-size:0.82rem;}
   .unassigned{color:var(--ink-soft); font-style:italic;}
+  .escalated-note{color:var(--ink-soft); font-size:0.72rem; margin-left:6px;}
 
   .pill{display:inline-block; padding:2px 9px; border-radius:99px; font-size:0.72rem; font-weight:700;}
   .pill-sent{background:var(--gold-soft); color:var(--gold);}
@@ -80,6 +81,7 @@
     <div class="stat-card"><div class="num" id="statToday">—</div><div class="label">Started today</div></div>
     <div class="stat-card"><div class="num" id="statWeek">—</div><div class="label">Started this week</div></div>
     <div class="stat-card"><div class="num" id="statUnassigned">—</div><div class="label">Currently unassigned</div></div>
+    <div class="stat-card"><div class="num" id="statCounsellorAccepted">—</div><div class="label">Escalated & accepted by a counsellor</div></div>
   </div>
 
   <table>
@@ -201,7 +203,7 @@
     }
     document.getElementById('opsTableBody').innerHTML = rows.map(r => {
       const assignedLabel = r.assignee_name
-        ? escapeHtml(r.assignee_name)
+        ? escapeHtml(r.assignee_name) + (r.escalated_to_counsellor ? '<span class="escalated-note">escalated & accepted by a counsellor</span>' : '')
         : `<span class="unassigned">unassigned</span>`;
       return `<tr>
         <td class="code">${escapeHtml(r.case_ref)}</td>
@@ -217,6 +219,7 @@
     document.getElementById('statToday').textContent = stats ? stats.today : '—';
     document.getElementById('statWeek').textContent = stats ? stats.this_week : '—';
     document.getElementById('statUnassigned').textContent = stats ? stats.unassigned : '—';
+    document.getElementById('statCounsellorAccepted').textContent = stats ? stats.accepted_by_counsellor : '—';
   }
 </script>
 </body>
