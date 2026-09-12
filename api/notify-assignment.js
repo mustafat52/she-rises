@@ -38,8 +38,26 @@ module.exports = async (req, res) => {
     return;
   }
 
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Best-effort, fire-and-forget: a logging failure should never crash the
+  // actual notification attempt, so this isn't awaited or allowed to throw.
+  // This is the entire data source behind the Ops Monitor screen — without
+  // it, "did the notification fire" required manually reading pg_net's own
+  // internal response table, which is what we did by hand before this existed.
+  function logOutcome(status, detail){
+    supabase.from('notification_log').insert({
+      case_ref: case_ref || null,
+      profile_id,
+      role: role || null,
+      status,
+      detail: detail || null,
+    }).then(({ error }) => {
+      if (error) console.error('notification_log insert failed:', error);
+    });
+  }
+
   try {
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('fcm_token, full_name')
@@ -49,6 +67,7 @@ module.exports = async (req, res) => {
     if (error || !profile || !profile.fcm_token) {
       // Not an error worth failing loudly on — they just haven't enabled
       // notifications on a device yet.
+      logOutcome('skipped', 'no fcm_token on file');
       res.status(200).json({ skipped: true, reason: 'no fcm_token on file' });
       return;
     }
@@ -63,18 +82,27 @@ module.exports = async (req, res) => {
     // auto-displayed by the browser AND handled by our own service worker
     // code, showing the same push twice. Data-only means only our own
     // onBackgroundMessage handler ever displays it, exactly once.
+    // Deep-link to the right dashboard for whichever role this notification
+    // is actually for — this was previously hardcoded to /dashboard-counsellor
+    // regardless of role, so a volunteer tapping her notification would get
+    // sent to the counsellor dashboard and bounced by its role gate instead
+    // of landing on her actual case.
+    const dashboardPath = role === 'counsellor' ? 'dashboard-counsellor' : 'dashboard-volunteer';
+
     await admin.messaging().send({
       token: profile.fcm_token,
       data: {
         title,
         body,
-        url: 'https://she-rises-kappa.vercel.app/dashboard-counsellor',
+        url: `https://she-rises-kappa.vercel.app/${dashboardPath}`,
       },
     });
 
     res.status(200).json({ sent: true });
+    logOutcome('sent', null);
   } catch (err) {
     console.error('notify-assignment error:', err);
+    logOutcome('error', String((err && err.message) || err));
     res.status(500).json({ error: 'Could not send notification' });
   }
 };

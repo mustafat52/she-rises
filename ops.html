@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>She Rises — Ops Monitor</title>
+<!-- Deliberately not linked from any nav, and not just role-gated: see the
+     is_owner check below. This is a private tool for one person to watch
+     the pipeline (conversation created -> assigned -> notified), not a
+     staff-facing page. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ivory:#FFFCF7; --ivory-deep:#FFE0F0; --rose-deep:#C40057; --rose-deep-dark:#8F0040;
+    --rose-soft:#FF71B9; --gold:#0C6A7A; --gold-soft:#B9EFF5; --gold-line:#21D3EB; --ink:#130020; --ink-soft:#582D76;
+    --danger:#A13B3B; --danger-soft:#F6DCDC;
+    --warn:#B87F2E; --warn-soft:#F3E3C8;
+    --shadow:0 14px 34px -18px rgba(42,34,32,0.4);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ivory); color:var(--ink); font-family:'Karla',sans-serif; min-height:100vh;}
+  h1,h2,.display{font-family:'Fraunces',serif; font-weight:500; color:var(--rose-deep);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  #authLoading{min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--ivory);}
+  #gateScreen{
+    display:none; min-height:100vh; align-items:center; justify-content:center; flex-direction:column; gap:14px;
+    text-align:center; padding:30px;
+  }
+  #gateScreen p{color:var(--ink-soft); max-width:360px;}
+
+  main{max-width:1100px; margin:0 auto; padding:34px 24px 60px;}
+  header{display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:26px;}
+  header h1{font-size:1.7rem;}
+  header p{color:var(--ink-soft); font-size:0.9rem; margin-top:4px;}
+  .refresh-note{font-size:0.78rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+
+  .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:30px;}
+  .stat-card{background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:12px; padding:16px 18px;}
+  .stat-card .num{font-family:'Fraunces',serif; font-size:1.8rem; color:var(--rose-deep);}
+  .stat-card .label{font-size:0.78rem; color:var(--ink-soft); margin-top:2px;}
+
+  table{width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; border:1px solid rgba(196,0,87,0.1);}
+  th, td{text-align:left; padding:10px 14px; font-size:0.86rem; border-bottom:1px solid rgba(196,0,87,0.08);}
+  th{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); background:var(--ivory-deep);}
+  tr:last-child td{border-bottom:none;}
+  .code{font-family:'IBM Plex Mono',monospace; font-size:0.82rem;}
+  .unassigned{color:var(--ink-soft); font-style:italic;}
+
+  .pill{display:inline-block; padding:2px 9px; border-radius:99px; font-size:0.72rem; font-weight:700;}
+  .pill-sent{background:var(--gold-soft); color:var(--gold);}
+  .pill-skipped{background:var(--warn-soft); color:var(--warn);}
+  .pill-error{background:var(--danger-soft); color:var(--danger);}
+  .pill-pending{background:#eee; color:var(--ink-soft);}
+
+  .loading-row{padding:30px; text-align:center; color:var(--ink-soft); font-size:0.88rem;}
+</style>
+</head>
+<body>
+
+<div id="authLoading"><span class="mono" style="color:var(--ink-soft);">Checking access…</span></div>
+
+<div id="gateScreen">
+  <h1 class="display" style="font-size:1.4rem;">She Rises</h1>
+  <p id="gateMsg">You don't have access to this page.</p>
+</div>
+
+<main id="opsApp" style="display:none;">
+  <header>
+    <div>
+      <h1>Ops Monitor</h1>
+      <p>Every conversation as it comes in — who it was assigned to, and whether the notification actually went out.</p>
+    </div>
+    <div class="refresh-note" id="refreshNote">—</div>
+  </header>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="num" id="statTotal">—</div><div class="label">Total conversations, all time</div></div>
+    <div class="stat-card"><div class="num" id="statToday">—</div><div class="label">Started today</div></div>
+    <div class="stat-card"><div class="num" id="statWeek">—</div><div class="label">Started this week</div></div>
+    <div class="stat-card"><div class="num" id="statUnassigned">—</div><div class="label">Currently unassigned</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Case</th><th>Created</th><th>Assigned to</th><th>Notification</th></tr>
+    </thead>
+    <tbody id="opsTableBody">
+      <tr><td colspan="4" class="loading-row">Loading…</td></tr>
+    </tbody>
+  </table>
+</main>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = window.SUPABASE_URL;
+  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const ROWS_LIMIT = 100; // most recent conversations shown — this is a live glance, not an archive browser
+
+  function showGate(msg){
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('gateScreen').style.display = 'flex';
+    if(msg) document.getElementById('gateMsg').textContent = msg;
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function timeAgo(iso){
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if(mins < 1) return 'just now';
+    if(mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if(hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  function notificationPill(status){
+    if(!status) return `<span class="pill pill-pending">no attempt yet</span>`;
+    if(status === 'sent') return `<span class="pill pill-sent">Sent</span>`;
+    if(status === 'skipped') return `<span class="pill pill-skipped">Skipped — no token</span>`;
+    return `<span class="pill pill-error">Failed</span>`;
+  }
+
+  let sessionHandled = false;
+
+  async function handleSession(session){
+    if(sessionHandled || !session) return;
+    const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    if(error || !profile || !profile.is_active){
+      showGate('No active session found — please sign in at the dashboard first.');
+      return;
+    }
+    // Deliberately checking is_owner, not role — this stays restricted to
+    // specifically this account even if more admins are added later.
+    if(!profile.is_owner){
+      showGate("This account doesn't have access to the Ops Monitor.");
+      return;
+    }
+    sessionHandled = true;
+    document.getElementById('authLoading').style.display = 'none';
+    document.getElementById('opsApp').style.display = 'block';
+    loadOps();
+    setInterval(loadOps, 20000);
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if(session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')){
+      handleSession(session).catch(e=>{
+        console.warn('Session check failed.', e);
+        if(!sessionHandled) showGate('Could not verify your session — please sign in at the dashboard first.');
+      });
+    }
+  });
+
+  (async function checkExistingSession(){
+    try{
+      const { data } = await sb.auth.getSession();
+      if(data && data.session){
+        await handleSession(data.session);
+        return;
+      }
+    }catch(e){ console.warn('No existing session yet.', e); }
+    setTimeout(()=>{
+      if(!sessionHandled) showGate("You're not signed in — please sign in at the dashboard first.");
+    }, 1500);
+  })();
+
+  async function loadOps(){
+    try{
+      const { data: cases, error: casesErr } = await sb
+        .from('cases')
+        .select('case_ref, created_at, assigned_to, assigned_counsellor, status')
+        .eq('source', 'chat')
+        .order('created_at', { ascending:false })
+        .limit(ROWS_LIMIT);
+      if(casesErr) throw casesErr;
+
+      const assigneeIds = [...new Set(
+        cases.map(c => c.assigned_counsellor || c.assigned_to).filter(Boolean)
+      )];
+      let namesById = {};
+      if(assigneeIds.length){
+        const { data: people, error: peopleErr } = await sb
+          .from('profiles').select('id, full_name').in('id', assigneeIds);
+        if(peopleErr) throw peopleErr;
+        namesById = Object.fromEntries(people.map(p => [p.id, p.full_name]));
+      }
+
+      const caseRefs = cases.map(c => c.case_ref).filter(Boolean);
+      let latestLogByRef = {};
+      if(caseRefs.length){
+        const { data: logs, error: logsErr } = await sb
+          .from('notification_log')
+          .select('case_ref, status, created_at')
+          .in('case_ref', caseRefs)
+          .order('created_at', { ascending:false });
+        if(logsErr) throw logsErr;
+        // First one seen per case_ref, in descending order, is the latest —
+        // earlier/older attempts for the same case are ignored on purpose.
+        for(const l of logs){
+          if(!(l.case_ref in latestLogByRef)) latestLogByRef[l.case_ref] = l.status;
+        }
+      }
+
+      renderTable(cases, namesById, latestLogByRef);
+      renderStats(cases);
+      document.getElementById('refreshNote').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    }catch(e){
+      console.error('Ops Monitor load failed', e);
+      document.getElementById('opsTableBody').innerHTML =
+        `<tr><td colspan="4" class="loading-row">Could not load — ${escapeHtml((e && e.message) || 'unknown error')}</td></tr>`;
+    }
+  }
+
+  function renderTable(cases, namesById, latestLogByRef){
+    if(!cases.length){
+      document.getElementById('opsTableBody').innerHTML = `<tr><td colspan="4" class="loading-row">No conversations yet.</td></tr>`;
+      return;
+    }
+    document.getElementById('opsTableBody').innerHTML = cases.map(c => {
+      const assigneeId = c.assigned_counsellor || c.assigned_to;
+      const assignedLabel = assigneeId
+        ? escapeHtml(namesById[assigneeId] || 'Unknown')
+        : `<span class="unassigned">unassigned</span>`;
+      return `<tr>
+        <td class="code">${escapeHtml(c.case_ref)}</td>
+        <td>${timeAgo(c.created_at)}</td>
+        <td>${assignedLabel}</td>
+        <td>${notificationPill(latestLogByRef[c.case_ref])}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderStats(cases){
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
+
+    const todayCount = cases.filter(c => new Date(c.created_at) >= startOfToday).length;
+    const weekCount = cases.filter(c => new Date(c.created_at) >= startOfWeek).length;
+    const unassignedCount = cases.filter(c => !c.assigned_to && !c.assigned_counsellor).length;
+
+    document.getElementById('statToday').textContent = todayCount;
+    document.getElementById('statWeek').textContent = weekCount;
+    document.getElementById('statUnassigned').textContent = unassignedCount;
+
+    // All-time total intentionally comes from the existing public RPC
+    // rather than counting the ROWS_LIMIT-capped list above, since this
+    // page only ever loads the most recent 100 — that undercounts total
+    // volume once you're past 100 conversations ever.
+    sb.rpc('get_conversations_helped_count').then(({ data, error }) => {
+      if(!error && typeof data === 'number') document.getElementById('statTotal').textContent = data;
+    });
+  }
+</script>
+</body>
+</html>
