@@ -139,9 +139,11 @@
       showGate('No active session found — please sign in at the dashboard first.');
       return;
     }
-    // Deliberately checking is_owner, not role — this stays restricted to
-    // specifically this account even if more admins are added later.
-    if(!profile.is_owner){
+    // Deliberately checking is_owner OR role — either grants access. Role
+    // alone (developer) is what stops this account from ever being picked
+    // up by volunteer round-robin assignment; is_owner stays available as
+    // a way to grant access to some other account without changing its role.
+    if(!profile.is_owner && profile.role !== 'developer'){
       showGate("This account doesn't have access to the Ops Monitor.");
       return;
     }
@@ -176,43 +178,14 @@
 
   async function loadOps(){
     try{
-      const { data: cases, error: casesErr } = await sb
-        .from('cases')
-        .select('case_ref, created_at, assigned_to, assigned_counsellor, status')
-        .eq('source', 'chat')
-        .order('created_at', { ascending:false })
-        .limit(ROWS_LIMIT);
-      if(casesErr) throw casesErr;
+      const { data: rows, error } = await sb.rpc('get_ops_conversations', { p_limit: ROWS_LIMIT });
+      if(error) throw error;
+      renderTable(rows || []);
 
-      const assigneeIds = [...new Set(
-        cases.map(c => c.assigned_counsellor || c.assigned_to).filter(Boolean)
-      )];
-      let namesById = {};
-      if(assigneeIds.length){
-        const { data: people, error: peopleErr } = await sb
-          .from('profiles').select('id, full_name').in('id', assigneeIds);
-        if(peopleErr) throw peopleErr;
-        namesById = Object.fromEntries(people.map(p => [p.id, p.full_name]));
-      }
+      const { data: stats, error: statsErr } = await sb.rpc('get_ops_stats');
+      if(statsErr) throw statsErr;
+      renderStats(stats && stats[0]);
 
-      const caseRefs = cases.map(c => c.case_ref).filter(Boolean);
-      let latestLogByRef = {};
-      if(caseRefs.length){
-        const { data: logs, error: logsErr } = await sb
-          .from('notification_log')
-          .select('case_ref, status, created_at')
-          .in('case_ref', caseRefs)
-          .order('created_at', { ascending:false });
-        if(logsErr) throw logsErr;
-        // First one seen per case_ref, in descending order, is the latest —
-        // earlier/older attempts for the same case are ignored on purpose.
-        for(const l of logs){
-          if(!(l.case_ref in latestLogByRef)) latestLogByRef[l.case_ref] = l.status;
-        }
-      }
-
-      renderTable(cases, namesById, latestLogByRef);
-      renderStats(cases);
       document.getElementById('refreshNote').textContent = 'Updated ' + new Date().toLocaleTimeString();
     }catch(e){
       console.error('Ops Monitor load failed', e);
@@ -221,45 +194,29 @@
     }
   }
 
-  function renderTable(cases, namesById, latestLogByRef){
-    if(!cases.length){
+  function renderTable(rows){
+    if(!rows.length){
       document.getElementById('opsTableBody').innerHTML = `<tr><td colspan="4" class="loading-row">No conversations yet.</td></tr>`;
       return;
     }
-    document.getElementById('opsTableBody').innerHTML = cases.map(c => {
-      const assigneeId = c.assigned_counsellor || c.assigned_to;
-      const assignedLabel = assigneeId
-        ? escapeHtml(namesById[assigneeId] || 'Unknown')
+    document.getElementById('opsTableBody').innerHTML = rows.map(r => {
+      const assignedLabel = r.assignee_name
+        ? escapeHtml(r.assignee_name)
         : `<span class="unassigned">unassigned</span>`;
       return `<tr>
-        <td class="code">${escapeHtml(c.case_ref)}</td>
-        <td>${timeAgo(c.created_at)}</td>
+        <td class="code">${escapeHtml(r.case_ref)}</td>
+        <td>${timeAgo(r.created_at)}</td>
         <td>${assignedLabel}</td>
-        <td>${notificationPill(latestLogByRef[c.case_ref])}</td>
+        <td>${notificationPill(r.notification_status)}</td>
       </tr>`;
     }).join('');
   }
 
-  function renderStats(cases){
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
-
-    const todayCount = cases.filter(c => new Date(c.created_at) >= startOfToday).length;
-    const weekCount = cases.filter(c => new Date(c.created_at) >= startOfWeek).length;
-    const unassignedCount = cases.filter(c => !c.assigned_to && !c.assigned_counsellor).length;
-
-    document.getElementById('statToday').textContent = todayCount;
-    document.getElementById('statWeek').textContent = weekCount;
-    document.getElementById('statUnassigned').textContent = unassignedCount;
-
-    // All-time total intentionally comes from the existing public RPC
-    // rather than counting the ROWS_LIMIT-capped list above, since this
-    // page only ever loads the most recent 100 — that undercounts total
-    // volume once you're past 100 conversations ever.
-    sb.rpc('get_conversations_helped_count').then(({ data, error }) => {
-      if(!error && typeof data === 'number') document.getElementById('statTotal').textContent = data;
-    });
+  function renderStats(stats){
+    document.getElementById('statTotal').textContent = stats ? stats.total : '—';
+    document.getElementById('statToday').textContent = stats ? stats.today : '—';
+    document.getElementById('statWeek').textContent = stats ? stats.this_week : '—';
+    document.getElementById('statUnassigned').textContent = stats ? stats.unassigned : '—';
   }
 </script>
 </body>
