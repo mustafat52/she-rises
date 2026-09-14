@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>She Rises — Ops Monitor</title>
 <!-- Deliberately not linked from any nav, and not just role-gated: see the
-     is_owner check below. This is a private tool for one person to watch
-     the pipeline (conversation created -> assigned -> notified), not a
-     staff-facing page. -->
+     is_owner / developer-role check below. This is a private tool for
+     watching the pipeline (conversation created -> assigned -> notified),
+     not a staff-facing page. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -22,6 +22,7 @@
   body{background:var(--ivory); color:var(--ink); font-family:'Karla',sans-serif; min-height:100vh;}
   h1,h2,.display{font-family:'Fraunces',serif; font-weight:500; color:var(--rose-deep);}
   .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:inherit; cursor:pointer; border:none;}
 
   #authLoading{min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--ivory);}
   #gateScreen{
@@ -34,7 +35,13 @@
   header{display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:26px;}
   header h1{font-size:1.7rem;}
   header p{color:var(--ink-soft); font-size:0.9rem; margin-top:4px;}
+  .header-right{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
   .refresh-note{font-size:0.78rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  .logout-btn{
+    color:var(--rose-deep); font-size:0.82rem; font-weight:700; padding:8px 16px;
+    border-radius:99px; background:var(--ivory-deep); transition:background .15s; white-space:nowrap;
+  }
+  .logout-btn:hover{background:var(--rose-soft);}
 
   .stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; margin-bottom:30px;}
   .stat-card{background:#fff; border:1px solid rgba(196,0,87,0.1); border-radius:12px; padding:16px 18px;}
@@ -73,7 +80,10 @@
       <h1>Ops Monitor</h1>
       <p>Every conversation as it comes in — who it was assigned to, and whether the notification actually went out.</p>
     </div>
-    <div class="refresh-note" id="refreshNote">—</div>
+    <div class="header-right">
+      <div class="refresh-note" id="refreshNote">—</div>
+      <button class="logout-btn" onclick="logout()">← Sign out</button>
+    </div>
   </header>
 
   <div class="stat-grid">
@@ -109,6 +119,14 @@
     if(msg) document.getElementById('gateMsg').textContent = msg;
   }
 
+  async function logout(){
+    try{ await sb.auth.signOut(); }catch(e){ console.error(e); }
+    // Hard navigation, not just hiding divs — guarantees the next sign-in
+    // (even the same tab) starts from a completely fresh script execution,
+    // matching the same pattern used on every other dashboard's logout.
+    window.location.href = '/dashboard';
+  }
+
   function escapeHtml(str){
     const div = document.createElement('div');
     div.textContent = str == null ? '' : String(str);
@@ -141,10 +159,10 @@
       showGate('No active session found — please sign in at the dashboard first.');
       return;
     }
-    // Deliberately checking is_owner OR role — either grants access. Role
-    // alone (developer) is what stops this account from ever being picked
-    // up by volunteer round-robin assignment; is_owner stays available as
-    // a way to grant access to some other account without changing its role.
+    // Either condition grants access — is_owner works for an account whose
+    // role wasn't changed, 'developer' is the dedicated role that also
+    // structurally excludes this account from ever being picked up by
+    // volunteer round-robin case assignment.
     if(!profile.is_owner && profile.role !== 'developer'){
       showGate("This account doesn't have access to the Ops Monitor.");
       return;
