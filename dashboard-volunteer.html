@@ -449,7 +449,7 @@
   const PROBLEM_CATEGORIES = [
     'Marital / Husband Issues','Divorce & Separation','In-Law / Family Issues','Children & Parenting',
     'Financial Difficulties','Mental Health & Emotional Well-being','Suicidal Thoughts','Deen & Spiritual Guidance',
-    'Dua & Istirshaadan Araz','Araz','Personal / Life Challenges','Domestic Conflict','Abuse or Safety Concerns','Other'
+    'Personal / Life Challenges','Domestic Conflict','Abuse or Safety Concerns','Other'
   ];
   const CRISIS_TAGS = ['Suicidal Thoughts','Domestic Violence'];
 
@@ -683,6 +683,7 @@
   function parseProblemCategory(value){
     const parts = (value || '').split(',').map(s=>s.trim()).filter(Boolean);
     const selected = new Set();
+    const legacy = new Set();
     let otherText = '';
     parts.forEach(p=>{
       if(p.toLowerCase().startsWith('other:')){
@@ -692,15 +693,23 @@
         selected.add('Other');
       } else if(PROBLEM_CATEGORIES.includes(p)){
         selected.add(p);
+      } else {
+        // Retired category (e.g. the old "Araz" options) or a value typed in
+        // before this taxonomy existed. Kept as-is rather than dropped —
+        // without this, opening and saving the edit form on an older case
+        // would silently erase what she originally picked.
+        legacy.add(p);
       }
     });
-    return { selected, otherText };
+    return { selected, otherText, legacy };
   }
 
   function renderProblemChips(existingValue){
-    const { selected, otherText } = parseProblemCategory(existingValue);
-    const chips = PROBLEM_CATEGORIES.map(cat=>
-      `<button type="button" class="tag-opt ${selected.has(cat)?'selected':''}" data-tag="${escapeConvHtml(cat)}" onclick="toggleTagOpt(this)">${escapeConvHtml(cat)}</button>`
+    const { selected, otherText, legacy } = parseProblemCategory(existingValue);
+    // Current taxonomy first, then any retired value this case already carries,
+    // shown pre-selected so it survives a save (deselectable if she wants it gone).
+    const chips = PROBLEM_CATEGORIES.concat(Array.from(legacy)).map(cat=>
+      `<button type="button" class="tag-opt ${selected.has(cat)||legacy.has(cat)?'selected':''}" data-tag="${escapeConvHtml(cat)}" onclick="toggleTagOpt(this)">${escapeConvHtml(cat)}</button>`
     ).join('');
     return `
       <div class="tag-select-grid" id="f_problem_chips">${chips}</div>

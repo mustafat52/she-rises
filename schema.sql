@@ -1638,3 +1638,78 @@ create trigger trg_broadcast_new_conversation
 -- dashboard under Project Settings → API → Realtime before relying on
 -- this going live automatically.
 -- ============================================================
+-- ============================================================================
+-- ==============  7. ARAZ RETIRED — ZAINAB REJOINS ROUND-ROBIN  ==============
+-- ============================================================================
+-- Supersedes section 6 above. The "Araz" and "Dua & Istirshaadan Araz"
+-- options have been removed from the intake picker (chat.html) and from the
+-- PROBLEM_CATEGORIES list the dashboards use, so the special-case branch that
+-- routed an "Araz" conversation straight to the least-loaded senior volunteer
+-- no longer has any trigger — and more to the point, it should no longer
+-- exist: senior volunteers (Zainab included) now take cases through the exact
+-- same round-robin as every other active volunteer, for every category.
+--
+-- Note this only changes AUTOMATIC intake routing. Everything else about the
+-- senior volunteer role is untouched and still works:
+--   - transfer_case_to_lead / transfer_case_back (manual escalation to her)
+--   - the "Transferred to Me" tab in her dashboard
+--   - all the super_volunteer RLS policies in section 3
+-- So a volunteer who wants Zainab specifically on a case still hands it to
+-- her deliberately; she just isn't force-fed a whole category any more.
+--
+-- Running this on a live DB is safe: same function name, same single text
+-- argument, same return shape, so nothing downstream (chat.html's
+-- sb.rpc('start_conversation', { p_problem_category: problem })) changes.
+-- Existing cases already tagged "Araz" keep their value and their current
+-- assignee — this only affects conversations started from now on.
+-- ============================================================================
+
+create or replace function start_conversation(p_problem_category text)
+returns table(out_access_code text, out_case_ref text) as $$
+declare
+  v_code text;
+  v_case_id uuid;
+  v_case_ref text;
+  v_assignee uuid;
+begin
+  -- Single, unconditional round-robin over the whole active owner-side pool.
+  -- 'super_volunteer' sits in this list exactly like 'volunteer' does, which
+  -- is what "Zainab gets assigned normally like everyone else" means in
+  -- practice — she's picked when she's the least busy, and skipped when
+  -- she's away or inactive, same as anyone.
+  --
+  -- FOR UPDATE SKIP LOCKED (kept from the previous version): without it,
+  -- concurrent calls each read the same "currently least busy" count before
+  -- any of them commit, so a burst of simultaneous signups could all pick the
+  -- same volunteer and stack a dozen cases on her at once. This locks the
+  -- picked profile row for the rest of the transaction, so a second
+  -- concurrent call skips it and takes the next-least-busy one instead.
+  select p.id into v_assignee
+  from profiles p
+  where p.role in ('volunteer','super_volunteer')
+    and p.is_active = true
+    and p.is_away = false
+  order by (
+    select count(*) from cases c
+    where c.assigned_to = p.id and c.status not in ('resolved','closed')
+  ) asc
+  for update skip locked
+  limit 1;
+
+  v_code := generate_access_code();
+  while exists (select 1 from cases where access_code = v_code) loop
+    v_code := generate_access_code();
+  end loop;
+
+  insert into cases (
+    alias, note, source, status, severity, assigned_to, access_code, problem_category
+  )
+  values (
+    'Anonymous conversation', coalesce(p_problem_category, 'Not specified'), 'chat', 'new', 'standard',
+    v_assignee, v_code, p_problem_category
+  )
+  returning id, case_ref into v_case_id, v_case_ref;
+
+  return query select v_code, v_case_ref;
+end;
+$$ language plpgsql security definer;
