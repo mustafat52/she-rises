@@ -147,6 +147,9 @@
     if(!status) return `<span class="pill pill-pending">no attempt yet</span>`;
     if(status === 'sent') return `<span class="pill pill-sent">Sent</span>`;
     if(status === 'skipped') return `<span class="pill pill-skipped">Skipped — no token</span>`;
+    // Not a failure needing action — the token was dead and has already
+    // been cleared automatically; she'll re-register on her next login.
+    if(status === 'stale_token_cleared') return `<span class="pill pill-skipped">Device token expired — auto-reset</span>`;
     return `<span class="pill pill-error">Failed</span>`;
   }
 
