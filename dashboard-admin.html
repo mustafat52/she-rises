@@ -515,8 +515,11 @@
     </div>
 
     <div id="teamView" style="display:none;">
-      <input type="text" id="teamSearchInput" placeholder="Search by name or email…" oninput="renderTeam()"
-        style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; margin-bottom:14px; background:#fff;">
+      <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+        <input type="text" id="teamSearchInput" placeholder="Search by name or email…" oninput="renderTeam()"
+          style="flex:1; min-width:200px; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(196,0,87,0.2); font-size:0.85rem; background:#fff;">
+        <button class="btn-new" onclick="openAddTeamMemberModal()">+ Add team member</button>
+      </div>
       <div class="filter-row" id="teamFilterRow" style="margin-bottom:18px;"></div>
       <div class="person-list" id="teamList"><div class="empty-state">Loading…</div></div>
     </div>
@@ -613,6 +616,48 @@
   let editingCaseId = null;    // holds the case_ref (display id) of the case being edited
   let editingProfileId = null; // holds the profile id being edited in admin role/listing modals
 
+  // ================= FORCED PASSWORD CHANGE (admin-created accounts) =================
+  // Accounts created via "+ Add team member" start with must_change_password
+  // = true — the initial password (name@5152 style) was handed over by an
+  // admin, and this closes that window the moment she actually logs in, so
+  // that password stops being valid without her ever having to be told to
+  // change it separately. mandatoryPasswordChangeOpen blocks the existing
+  // overlay's click-outside-to-close behavior while this specific modal is
+  // showing — there's no Cancel button here on purpose.
+  let mandatoryPasswordChangeOpen = false;
+
+  function checkMustChangePassword(profile){
+    if(!profile || !profile.must_change_password) return;
+    mandatoryPasswordChangeOpen = true;
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Set your password</h2>
+      <p class="sub">For your security, please set your own password before continuing — the one you were given will stop working once you save a new one, and only you will know this one.</p>
+      <div class="field"><label>New password</label><input type="password" id="f_new_password" placeholder="At least 6 characters"></div>
+      <div class="field"><label>Confirm new password</label><input type="password" id="f_new_password_confirm"></div>
+      <div class="modal-actions">
+        <button class="btn-save" style="flex:1;" onclick="saveNewPassword()">Set Password</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  async function saveNewPassword(){
+    const p1 = document.getElementById('f_new_password').value;
+    const p2 = document.getElementById('f_new_password_confirm').value;
+    if(!p1 || p1.length < 6){ showToast('Password must be at least 6 characters'); return; }
+    if(p1 !== p2){ showToast('Passwords do not match'); return; }
+    try{
+      const { error: authErr } = await sb.auth.updateUser({ password: p1 });
+      if(authErr) throw authErr;
+      const { error: profErr } = await sb.from('profiles').update({ must_change_password: false }).eq('id', currentUser.id);
+      if(profErr) throw profErr;
+    }catch(e){
+      console.error(e); showToast('Could not set password: ' + (e.message || 'unknown error')); return;
+    }
+    mandatoryPasswordChangeOpen = false;
+    closeModal();
+    showToast('Password set — welcome!');
+  }
+
   // ================= AUTH =================
   // This file has no independent login form — the only way in is an
   // existing session created by signing in at /dashboard, which redirects
@@ -662,6 +707,7 @@
     }
     sessionHandled = true;
     currentUser = { id: profile.id, name: profile.full_name, role: profile.role, is_lead: !!profile.is_lead };
+    checkMustChangePassword(profile);
     // admin doesn't need push notifications for case assignment
     document.getElementById('authLoading').style.display = 'none';
     document.getElementById('gateScreen').style.display = 'none';
@@ -1672,6 +1718,90 @@
   }
   function setTeamFilter(r){ activeTeamFilter = r; renderTeam(); }
 
+  // ================= ADD TEAM MEMBER (admin creates a login directly) =================
+  // Everything else on this platform funnels new team members through
+  // self-signup + admin approval (/join, /apply-counsellor). This is the
+  // one path where admin creates the account outright — for onboarding
+  // someone she already knows and has vetted, rather than waiting for them
+  // to find a public form. Email and password default to a fixed, easy
+  // convention (firstname@sherises.com / firstname@5152) so she can hand
+  // credentials over instantly — either field can still be edited if that
+  // clashes with an existing account or she wants something different.
+  // Both flags below just track whether SHE has typed into the field
+  // herself, so the auto-fill only overwrites what it generated, never
+  // something she deliberately changed.
+  let newMemberEmailEdited = false;
+  let newMemberPasswordEdited = false;
+
+  function slugifyFirstName(fullName){
+    const first = (fullName || '').trim().split(/\s+/)[0] || '';
+    return first.toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function openAddTeamMemberModal(){
+    newMemberEmailEdited = false;
+    newMemberPasswordEdited = false;
+    document.getElementById('modalContent').innerHTML = `
+      <h2>Add team member</h2>
+      <p class="sub">Creates their login right now — no self-signup needed. Email and password are suggested from their name; edit either if you need to (e.g. the name is already taken).</p>
+      <div class="field"><label>Full name</label><input id="f_new_name" oninput="onNewMemberNameInput()" placeholder="e.g. Priya Sharma"></div>
+      <div class="field"><label>Email</label><input id="f_new_email" oninput="newMemberEmailEdited=true" placeholder="name@sherises.com"></div>
+      <div class="field"><label>Password</label><input id="f_new_password" oninput="newMemberPasswordEdited=true" placeholder="name@5152"></div>
+      <div class="field"><label>Role</label>
+        <select id="f_new_role">
+          <option value="volunteer">Volunteer</option>
+          <option value="super_volunteer">Senior Volunteer</option>
+          <option value="counsellor">Counsellor</option>
+          <option value="media_manager">Media Manager</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:-8px; margin-bottom:16px;">She'll be asked to set her own password the first time she logs in — this one is just for the initial handover.</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveNewTeamMember()">Create Account</button>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+    setTimeout(()=>document.getElementById('f_new_name').focus(), 50);
+  }
+
+  function onNewMemberNameInput(){
+    const slug = slugifyFirstName(document.getElementById('f_new_name').value);
+    if(!newMemberEmailEdited) document.getElementById('f_new_email').value = slug ? `${slug}@sherises.com` : '';
+    if(!newMemberPasswordEdited) document.getElementById('f_new_password').value = slug ? `${slug}@5152` : '';
+  }
+
+  async function saveNewTeamMember(){
+    const full_name = document.getElementById('f_new_name').value.trim();
+    const email = document.getElementById('f_new_email').value.trim();
+    const password = document.getElementById('f_new_password').value;
+    const role = document.getElementById('f_new_role').value;
+    if(!full_name){ showToast('Please enter a name'); return; }
+    if(!email){ showToast('Please enter an email'); return; }
+    if(!password || password.length < 6){ showToast('Password must be at least 6 characters'); return; }
+    try{
+      const { data } = await sb.auth.getSession();
+      const token = data && data.session ? data.session.access_token : null;
+      if(!token) throw new Error('No active session');
+      const res = await fetch('/api/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ full_name, email, password, role })
+      });
+      const json = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(json.error || 'Could not create this account');
+    }catch(e){
+      console.error(e); showToast('Could not create account: ' + (e.message || 'unknown error')); return;
+    }
+    closeModal();
+    // Repeats the final email/password back rather than just "created" —
+    // she edited the fields right here, so this is the actual handover
+    // moment, and the values on screen might differ from the auto-suggested
+    // defaults.
+    showToast(`Created — hand over ${email} / ${password}. They'll set their own password on first login.`);
+    await loadAdminOverviewData();
+  }
+
   async function resetNotificationDevice(profileId){
     try{
       const { error } = await sb.from('profiles').update({ fcm_token: null }).eq('id', profileId);
@@ -2205,8 +2335,17 @@
     showToast('Case marked resolved');
   }
 
-  function closeModal(){ document.getElementById('modalOverlay').classList.remove('active'); editingCaseId=null; }
-  document.getElementById('modalOverlay').addEventListener('click', (e)=>{ if(e.target.id==='modalOverlay') closeModal(); });
+  function closeModal(){
+    // Belt-and-suspenders — the mandatory password-change modal has no
+    // Cancel button so this shouldn't normally be reachable while it's
+    // open, but this makes sure a stray call never leaves the flag stuck
+    // true and permanently blocking the overlay's click-outside-to-close.
+    mandatoryPasswordChangeOpen = false;
+    document.getElementById('modalOverlay').classList.remove('active'); editingCaseId=null;
+  }
+  document.getElementById('modalOverlay').addEventListener('click', (e)=>{
+    if(e.target.id==='modalOverlay' && !mandatoryPasswordChangeOpen) closeModal();
+  });
 
   function showToast(msg){
     const t = document.getElementById('toast');
