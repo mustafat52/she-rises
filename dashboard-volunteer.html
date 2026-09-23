@@ -536,11 +536,36 @@
     return /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok/i.test(ua);
   }
 
-  async function setupPushNotifications(existingToken){
-    if(existingToken){
-      setNotifBanner(false); // already locked to a device — never re-register automatically
-      return;
+  // Foreground push handler (fixes the gap tracked as "Bug #3" in the
+  // handoff notes): FCM routes a message to the service worker's
+  // onBackgroundMessage ONLY while the tab isn't focused. While it IS
+  // focused, FCM instead delivers to this page's own onMessage — and since
+  // nothing was ever listening there, a data-only payload was silently
+  // dropped with zero error, zero toast, nothing. (The chime/toast Mustafa
+  // saw earlier is a completely separate, unrelated feature — see
+  // loadConversations()'s 8s poll below — so it never actually proved this
+  // path worked.) Reuses the same registration.showNotification(...) the
+  // service worker itself uses, so a real OS notification appears the same
+  // way whether the tab is focused or not.
+  function registerForegroundPushHandler(registration){
+    try{
+      const messaging = firebase.messaging();
+      messaging.onMessage((payload) => {
+        const { title, body, url } = (payload && payload.data) || {};
+        if(registration && registration.showNotification){
+          registration.showNotification(title || 'She Rises', {
+            body: body || 'You have a new case assigned.',
+            icon: '/favicon.png',
+            data: { url: url || '/dashboard' },
+          });
+        }
+      });
+    }catch(e){
+      console.error('Could not attach foreground push handler:', e);
     }
+  }
+
+  async function setupPushNotifications(existingToken){
     if(!FIREBASE_CONFIG || !FIREBASE_VAPID_KEY){
       console.warn('Firebase not configured yet (missing env vars) — skipping push notification setup.');
       // Not shown to her: this is a deployment/config problem for an admin
@@ -548,7 +573,24 @@
       return;
     }
     if(!('serviceWorker' in navigator) || !('Notification' in window)){
-      setNotifBanner(true, '⚠️ This browser doesn’t support notifications on this device — try opening the site in Chrome or Safari instead.');
+      if(!existingToken) setNotifBanner(true, '⚠️ This browser doesn’t support notifications on this device — try opening the site in Chrome or Safari instead.');
+      return;
+    }
+    if(existingToken){
+      setNotifBanner(false); // already locked to a device — never re-register automatically
+      // Still need to wire up the foreground handler on every load — this
+      // used to return here before Firebase was ever touched, so onMessage
+      // never got attached for anyone past their very first registration
+      // (i.e. almost everyone, almost all the time).
+      try{
+        if(Notification.permission === 'granted' && !isLikelyInAppBrowser()){
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+          registerForegroundPushHandler(registration);
+        }
+      }catch(e){
+        console.error('Could not attach foreground push handler:', e);
+      }
       return;
     }
     if(isLikelyInAppBrowser()){
@@ -566,6 +608,7 @@
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       const messaging = firebase.messaging();
+      registerForegroundPushHandler(registration);
       const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registration });
       if(!token){
         setNotifBanner(true);

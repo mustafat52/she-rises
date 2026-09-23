@@ -1842,7 +1842,7 @@
 
   async function resetNotificationDevice(profileId){
     try{
-      const { error } = await sb.from('profiles').update({ fcm_token: null }).eq('id', profileId);
+      const { error } = await sb.from('profiles').update({ fcm_token: null, fcm_token_set_at: null }).eq('id', profileId);
       if(error) throw error;
     }catch(e){
       console.error(e); showToast('Could not reset: ' + (e.message || 'unknown error')); return;
