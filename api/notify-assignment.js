@@ -89,14 +89,44 @@ module.exports = async (req, res) => {
     // of landing on her actual case.
     const dashboardPath = role === 'counsellor' ? 'dashboard-counsellor' : 'dashboard-volunteer';
 
-    await admin.messaging().send({
-      token: profile.fcm_token,
-      data: {
-        title,
-        body,
-        url: `https://she-rises-kappa.vercel.app/${dashboardPath}`,
-      },
-    });
+    try {
+      await admin.messaging().send({
+        token: profile.fcm_token,
+        data: {
+          title,
+          body,
+          url: `https://she-rises-kappa.vercel.app/${dashboardPath}`,
+        },
+      });
+    } catch (sendErr) {
+      // A dead token (uninstalled app, cleared site data, token rotated by
+      // the browser, etc.) is expected to happen over time — it's not an
+      // operational failure worth paging anyone over, and leaving the dead
+      // token in place would just make every future assignment to this
+      // person fail the same way until she happens to log in again. Firebase
+      // Admin SDK reports this as one of these specific error codes; treat
+      // only those as "stale", and let anything else fall through to the
+      // real-failure path below.
+      const code = sendErr && sendErr.code;
+      const isStaleToken = code === 'messaging/registration-token-not-registered'
+        || code === 'messaging/invalid-registration-token'
+        || code === 'messaging/invalid-argument';
+
+      if (isStaleToken) {
+        const { error: clearErr } = await supabase
+          .from('profiles')
+          .update({ fcm_token: null, fcm_token_set_at: null })
+          .eq('id', profile_id);
+        if (clearErr) console.error('Failed to clear stale fcm_token:', clearErr);
+
+        logOutcome('stale_token_cleared', code || String((sendErr && sendErr.message) || sendErr));
+        // 200, not 500 — from the trigger's point of view this attempt is
+        // fully handled, not something that needs retrying.
+        res.status(200).json({ staleTokenCleared: true });
+        return;
+      }
+      throw sendErr; // genuine failure — handled by the outer catch below
+    }
 
     res.status(200).json({ sent: true });
     logOutcome('sent', null);
