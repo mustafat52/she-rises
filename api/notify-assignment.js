@@ -105,7 +105,7 @@ module.exports = async (req, res) => {
         data: {
           title,
           body,
-          url: `https://she-rises-kappa.vercel.app/${dashboardPath}`,
+          url: `https://sherisesdb.com/${dashboardPath}`,
         },
       });
     } catch (sendErr) {
