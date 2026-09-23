@@ -40,21 +40,31 @@ module.exports = async (req, res) => {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // Best-effort, fire-and-forget: a logging failure should never crash the
-  // actual notification attempt, so this isn't awaited or allowed to throw.
   // This is the entire data source behind the Ops Monitor screen — without
   // it, "did the notification fire" required manually reading pg_net's own
   // internal response table, which is what we did by hand before this existed.
-  function logOutcome(status, detail){
-    supabase.from('notification_log').insert({
+  //
+  // Must be awaited, every time it's called — including after res.status()
+  // has already been sent. A serverless function's execution environment can
+  // be frozen the instant its handler resolves; the response going out does
+  // NOT keep it alive. This used to be a fire-and-forget, un-awaited insert,
+  // which meant the handler could finish (and get frozen) before the insert
+  // actually reached Supabase — the insert would just silently vanish some of
+  // the time. That's why some notifications that genuinely sent (confirmed via
+  // net._http_response showing a clean 200 response) never got a matching
+  // notification_log row: not a failed send, a dropped log write. A logging
+  // failure still shouldn't crash the actual notification attempt, so this
+  // still swallows its own errors (just to the console) rather than throwing —
+  // it just no longer walks away before finding out whether it worked.
+  async function logOutcome(status, detail){
+    const { error } = await supabase.from('notification_log').insert({
       case_ref: case_ref || null,
       profile_id,
       role: role || null,
       status,
       detail: detail || null,
-    }).then(({ error }) => {
-      if (error) console.error('notification_log insert failed:', error);
     });
+    if (error) console.error('notification_log insert failed:', error);
   }
 
   try {
@@ -67,7 +77,7 @@ module.exports = async (req, res) => {
     if (error || !profile || !profile.fcm_token) {
       // Not an error worth failing loudly on — they just haven't enabled
       // notifications on a device yet.
-      logOutcome('skipped', 'no fcm_token on file');
+      await logOutcome('skipped', 'no fcm_token on file');
       res.status(200).json({ skipped: true, reason: 'no fcm_token on file' });
       return;
     }
@@ -119,7 +129,7 @@ module.exports = async (req, res) => {
           .eq('id', profile_id);
         if (clearErr) console.error('Failed to clear stale fcm_token:', clearErr);
 
-        logOutcome('stale_token_cleared', code || String((sendErr && sendErr.message) || sendErr));
+        await logOutcome('stale_token_cleared', code || String((sendErr && sendErr.message) || sendErr));
         // 200, not 500 — from the trigger's point of view this attempt is
         // fully handled, not something that needs retrying.
         res.status(200).json({ staleTokenCleared: true });
@@ -129,10 +139,13 @@ module.exports = async (req, res) => {
     }
 
     res.status(200).json({ sent: true });
-    logOutcome('sent', null);
+    await logOutcome('sent', null);
   } catch (err) {
     console.error('notify-assignment error:', err);
-    logOutcome('error', String((err && err.message) || err));
+    // Response first, then await the log write — same reasoning as above:
+    // sending res.status(500) doesn't need to wait on this, but the handler
+    // itself does, so the function isn't frozen before the insert lands.
     res.status(500).json({ error: 'Could not send notification' });
+    await logOutcome('error', String((err && err.message) || err));
   }
 };
