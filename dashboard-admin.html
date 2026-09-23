@@ -1842,7 +1842,7 @@
 
   async function resetNotificationDevice(profileId){
     try{
-      const { error } = await sb.from('profiles').update({ fcm_token: null, fcm_token_set_at: null }).eq('id', profileId);
+      const { error } = await sb.from('profiles').update({ fcm_token: null }).eq('id', profileId);
       if(error) throw error;
     }catch(e){
       console.error(e); showToast('Could not reset: ' + (e.message || 'unknown error')); return;
@@ -1935,6 +1935,7 @@
           <option value="counsellor" ${p.role==='counsellor'?'selected':''}>Counsellor</option>
           <option value="media_manager" ${p.role==='media_manager'?'selected':''}>Media Manager</option>
           ${canBeAdmin ? `<option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>` : ''}
+          <option value="developer" ${p.role==='developer'?'selected':''}>Developer</option>
         </select>
         ${!canBeAdmin ? `<p style="font-size:0.78rem; color:var(--ink-soft); margin-top:6px;">Volunteers can't be promoted directly to Admin — move them to Counsellor or Media Manager first if that's really needed.</p>` : ''}
       </div>
