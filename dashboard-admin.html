@@ -605,10 +605,19 @@
       if(token){
         // Guard against a race: only write if still empty at the moment of
         // saving (in case two tabs/devices both ran this in the same window).
-        await sb.from('profiles').update({ fcm_token: token }).eq('id', currentUser.id).is('fcm_token', null);
+        // fcm_token_set_at kept in sync with dashboard-volunteer.html's copy
+        // of this same flow — ops.html's notification-setup table reads it.
+        const { error } = await sb.from('profiles')
+          .update({ fcm_token: token, fcm_token_set_at: new Date().toISOString() })
+          .eq('id', currentUser.id).is('fcm_token', null);
+        if(error){
+          console.error('Saving push token failed:', error);
+          showToast('Notifications were allowed, but saving that failed: ' + error.message);
+        }
       }
     }catch(e){
       console.error('Push notification setup failed:', e);
+      showToast('Could not enable notifications: ' + (e.message || 'unknown error'));
     }
   }
   let activeView = 'inbox'; // inbox | mine | all | resolved
@@ -1227,12 +1236,41 @@
     renderConversationList();
     const c = conversations.find(x=>x.id===caseId);
     if(c){ renderConversationThread(c); updateSeekerTypingIndicator(c); }
-    document.getElementById('convWrap').classList.add('thread-open'); // full-screen drill-down on mobile; no-op on desktop
+    const wrap = document.getElementById('convWrap');
+    // Only push a history entry the moment we're actually opening the
+    // thread (list -> thread), not on every subsequent click while already
+    // inside one — otherwise picking a different conversation while a
+    // thread is open would stack up extra back-button presses.
+    if(!wrap.classList.contains('thread-open')){
+      // Without this, there's no in-app history entry for "thread open" at
+      // all, so the phone's hardware/gesture back button has nowhere to
+      // land except wherever she was *before* the dashboard loaded —
+      // exiting the whole app instead of just closing the thread.
+      history.pushState({ srThreadOpen: true }, '');
+    }
+    wrap.classList.add('thread-open');
   }
 
   function closeThread(){
-    document.getElementById('convWrap').classList.remove('thread-open');
+    // Route through the browser back button (rather than just toggling the
+    // class directly) whenever we're the ones who pushed this history
+    // entry, so the on-screen button and the hardware back button always
+    // stay in sync — popstate below is the single place that actually
+    // closes the thread.
+    if(history.state && history.state.srThreadOpen){
+      history.back();
+    } else {
+      document.getElementById('convWrap').classList.remove('thread-open');
+    }
   }
+
+  // Hardware/gesture back button while a thread is open: close the thread
+  // instead of leaving the dashboard entirely.
+  window.addEventListener('popstate', function(event){
+    if(!event.state || !event.state.srThreadOpen){
+      document.getElementById('convWrap').classList.remove('thread-open');
+    }
+  });
 
   // Runs every poll, independent of renderConversationThread's own
   // rebuild guard — the whole point of that guard is to avoid tearing

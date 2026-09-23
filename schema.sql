@@ -808,6 +808,12 @@ create index if not exists idx_counsellor_case_requests_status on counsellor_cas
 
 -- Where each volunteer/counsellor's device push token lives.
 alter table profiles add column if not exists fcm_token text;
+-- When that token was saved — read by ops.html's notification-setup table,
+-- and written by dashboard-volunteer.html / dashboard-admin.html whenever a
+-- device successfully registers. (This was referenced by both of those
+-- files without ever actually being added to the schema — the missing
+-- column caused every save attempt to fail silently.)
+alter table profiles add column if not exists fcm_token_set_at timestamptz;
 
 -- Small key/value config table so the webhook URL + shared secret can be
 -- set/rotated without editing SQL or redeploying anything.

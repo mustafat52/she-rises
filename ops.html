@@ -48,6 +48,10 @@
   .stat-card .num{font-family:'Fraunces',serif; font-size:1.8rem; color:var(--rose-deep);}
   .stat-card .label{font-size:0.78rem; color:var(--ink-soft); margin-top:2px;}
 
+  .section-title{font-size:1.05rem; margin:34px 0 12px;}
+  .section-title:first-of-type{margin-top:0;}
+  .section-sub{color:var(--ink-soft); font-size:0.84rem; margin:-8px 0 14px;}
+
   table{width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; border:1px solid rgba(196,0,87,0.1);}
   th, td{text-align:left; padding:10px 14px; font-size:0.86rem; border-bottom:1px solid rgba(196,0,87,0.08);}
   th{font-family:'IBM Plex Mono',monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); background:var(--ivory-deep);}
@@ -55,6 +59,7 @@
   .code{font-family:'IBM Plex Mono',monospace; font-size:0.82rem;}
   .unassigned{color:var(--ink-soft); font-style:italic;}
   .escalated-note{color:var(--ink-soft); font-size:0.72rem; margin-left:6px;}
+  .dim{color:var(--ink-soft);}
 
   .pill{display:inline-block; padding:2px 9px; border-radius:99px; font-size:0.72rem; font-weight:700;}
   .pill-sent{background:var(--gold-soft); color:var(--gold);}
@@ -99,6 +104,17 @@
       <tr><th>Case</th><th>Created</th><th>Assigned to</th><th>Notification</th></tr>
     </thead>
     <tbody id="opsTableBody">
+      <tr><td colspan="4" class="loading-row">Loading…</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section-title">Notification Setup</h2>
+  <p class="section-sub">Who's actually able to receive a push right now, and since when — independent of any one case. Admins aren't shown; their dashboard never registers for push.</p>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Role</th><th>Status</th><th>Since</th></tr>
+    </thead>
+    <tbody id="notifSetupTableBody">
       <tr><td colspan="4" class="loading-row">Loading…</td></tr>
     </tbody>
   </table>
@@ -153,6 +169,8 @@
     return `<span class="pill pill-error">Failed</span>`;
   }
 
+  const ROLE_LABELS = {volunteer:'Volunteer', super_volunteer:'Senior Volunteer', counsellor:'Counsellor'};
+
   let sessionHandled = false;
 
   async function handleSession(session){
@@ -174,7 +192,8 @@
     document.getElementById('authLoading').style.display = 'none';
     document.getElementById('opsApp').style.display = 'block';
     loadOps();
-    setInterval(loadOps, 20000);
+    loadNotificationSetup();
+    setInterval(() => { loadOps(); loadNotificationSetup(); }, 20000);
   }
 
   sb.auth.onAuthStateChange((event, session) => {
@@ -241,6 +260,41 @@
     document.getElementById('statWeek').textContent = stats ? stats.this_week : '—';
     document.getElementById('statUnassigned').textContent = stats ? stats.unassigned : '—';
     document.getElementById('statCounsellorAccepted').textContent = stats ? stats.accepted_by_counsellor : '—';
+  }
+
+  // ---------- Notification Setup: a live roster, not a history ----------
+  // Answers "who's actually reachable by push right now, and since when" —
+  // a reset (manual, via Manage Team, or the automatic stale-token clear)
+  // wipes both the status and the timestamp together, on purpose: an old
+  // "registered since" date for a token that's since gone dead would be
+  // misleading, not informative.
+  async function loadNotificationSetup(){
+    try{
+      const { data: rows, error } = await sb.rpc('get_notification_setup_status');
+      if(error) throw error;
+      renderNotifSetupTable(rows || []);
+    }catch(e){
+      console.error('Notification Setup load failed', e);
+      document.getElementById('notifSetupTableBody').innerHTML =
+        `<tr><td colspan="4" class="loading-row">Could not load — ${escapeHtml((e && e.message) || 'unknown error')}</td></tr>`;
+    }
+  }
+
+  function renderNotifSetupTable(rows){
+    if(!rows.length){
+      document.getElementById('notifSetupTableBody').innerHTML = `<tr><td colspan="4" class="loading-row">No one to show yet.</td></tr>`;
+      return;
+    }
+    // Not set up first — that's the actionable group; everyone already
+    // working correctly doesn't need to be looked at first.
+    const sorted = rows.slice().sort((a,b) => (a.is_registered === b.is_registered) ? 0 : (a.is_registered ? 1 : -1));
+    document.getElementById('notifSetupTableBody').innerHTML = sorted.map(r => `
+      <tr>
+        <td>${escapeHtml(r.full_name)}</td>
+        <td class="dim">${ROLE_LABELS[r.role] || escapeHtml(r.role)}</td>
+        <td>${r.is_registered ? '<span class="pill pill-sent">Registered</span>' : '<span class="pill pill-skipped">Not set up</span>'}</td>
+        <td class="dim">${r.fcm_token_set_at ? timeAgo(r.fcm_token_set_at) : '—'}</td>
+      </tr>`).join('');
   }
 </script>
 </body>

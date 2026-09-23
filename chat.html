@@ -121,6 +121,10 @@
   .code-copy-btn:hover{background:var(--rose-deep-dark);}
   .code-copy-btn.copied{background:var(--teal, #C40057);}
   .code-warning{font-size:0.78rem; color:var(--ink-soft); opacity:0.85; line-height:1.5;}
+  .code-link-section{margin-top:16px; text-align:left;}
+  .code-link-toggle{background:none; color:var(--ink-soft); font-size:0.85rem; font-weight:600; text-decoration:underline; padding:0;}
+  .code-link-toggle:hover{color:var(--rose-deep);}
+  .code-link-note{font-size:0.78rem; color:var(--ink-soft); opacity:0.85; line-height:1.5; margin:10px 0 10px;}
   .code-continue{margin-top:18px; background:var(--rose-deep); color:var(--ivory); padding:12px 26px; border-radius:99px; font-weight:700; font-size:0.9rem;}
   .code-continue:hover{background:var(--rose-deep-dark);}
 
@@ -271,6 +275,16 @@
       <button type="button" class="code-copy-btn" onclick="copyAccessCode()" id="copyCodeBtn" title="Copy code">Copy</button>
     </div>
     <div class="code-warning">If you're on a shared or family device, don't save this in a way others could find — write it somewhere private, or simply remember it.</div>
+    <div class="code-link-section">
+      <button type="button" class="code-link-toggle" onclick="toggleLinkOption()" id="linkToggleBtn">Prefer a link instead of typing the code? →</button>
+      <div id="codeLinkBox" style="display:none;">
+        <p class="code-link-note">Tapping this link brings you straight back to this conversation — only save it if it's safe to keep on this device. A link is easier to find later than a code, on this device or in your messages, so only choose this if that's okay.</p>
+        <div class="code-box-row">
+          <div class="code-box" id="codeLinkText" style="font-size:0.75rem; word-break:break-all; line-height:1.4;">——</div>
+          <button type="button" class="code-copy-btn" onclick="copyAccessLink()" id="copyLinkBtn" title="Copy link">Copy</button>
+        </div>
+      </div>
+    </div>
     <button class="code-continue" onclick="enterChatView()">Continue to conversation →</button>
   </div>
 
@@ -361,6 +375,7 @@
       const row = data[0];
       currentAccessCode = row.out_access_code;
       document.getElementById('codeBoxText').textContent = currentAccessCode;
+      document.getElementById('codeLinkText').textContent = buildResumeLink(currentAccessCode);
       document.getElementById('starter').classList.remove('active');
       document.getElementById('codeReveal').classList.add('active');
     }catch(e){
@@ -402,6 +417,52 @@
       setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
     }catch(e){
       console.error('Could not copy code', e);
+      showToast('Could not copy — please select and copy manually');
+    }
+  }
+
+  // ================= OPTIONAL RESUME LINK =================
+  // Opt-in alternative to the access code — off by default (she has to tap
+  // "prefer a link" to even see it), because a clickable link is more
+  // discoverable than a bare code sitting in Notes: it shows up in browser
+  // history and address-bar autocomplete under this site's real name, and
+  // any link-preview unfurl (WhatsApp, email) can cache it too. The code
+  // itself is unchanged and still the primary, safer path.
+  function buildResumeLink(code){
+    return location.origin + location.pathname + '#r=' + code;
+  }
+
+  function toggleLinkOption(){
+    const box = document.getElementById('codeLinkBox');
+    const btn = document.getElementById('linkToggleBtn');
+    const showing = box.style.display !== 'none';
+    box.style.display = showing ? 'none' : 'block';
+    btn.textContent = showing ? 'Prefer a link instead of typing the code? →' : 'Hide the link';
+  }
+
+  async function copyAccessLink(){
+    const link = document.getElementById('codeLinkText').textContent;
+    if(!link || link === '——') return;
+    const btn = document.getElementById('copyLinkBtn');
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(link);
+      } else {
+        const temp = document.createElement('textarea');
+        temp.value = link;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.focus();
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+      }
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    }catch(e){
+      console.error('Could not copy link', e);
       showToast('Could not copy — please select and copy manually');
     }
   }
@@ -763,6 +824,22 @@
     t.classList.add('show');
     setTimeout(()=>t.classList.remove('show'), 2800);
   }
+
+  // ================= AUTO-RESUME FROM A SAVED LINK =================
+  // If she arrived via a link saved from the "prefer a link" option above,
+  // #r=CODE is in the hash. Pick it up, resume straight into the
+  // conversation, and then strip it from the visible URL immediately —
+  // both so it doesn't sit in the address bar, and so re-sharing "this
+  // page" later (e.g. from a browser's own share-current-tab option)
+  // doesn't also hand over her access code.
+  (function autoResumeFromLink(){
+    const match = /(?:^|[?&#])r=([A-Z0-9]{4,12})/i.exec(location.hash);
+    if(!match) return;
+    const code = match[1].toUpperCase();
+    history.replaceState(null, '', location.pathname + location.search);
+    currentAccessCode = code;
+    loadAndEnterChat();
+  })();
 </script>
 </body>
 </html>

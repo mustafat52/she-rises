@@ -1003,12 +1003,41 @@
     renderConversationList();
     const c = conversations.find(x=>x.id===caseId);
     if(c) renderConversationThread(c);
-    document.getElementById('convWrap').classList.add('thread-open'); // full-screen drill-down on mobile; no-op on desktop
+    const wrap = document.getElementById('convWrap');
+    // Only push a history entry the moment we're actually opening the
+    // thread (list -> thread), not on every subsequent click while already
+    // inside one — otherwise picking a different conversation while a
+    // thread is open would stack up extra back-button presses.
+    if(!wrap.classList.contains('thread-open')){
+      // Without this, there's no in-app history entry for "thread open" at
+      // all, so the phone's hardware/gesture back button has nowhere to
+      // land except wherever she was *before* the dashboard loaded —
+      // exiting the whole app instead of just closing the thread.
+      history.pushState({ srThreadOpen: true }, '');
+    }
+    wrap.classList.add('thread-open');
   }
 
   function closeThread(){
-    document.getElementById('convWrap').classList.remove('thread-open');
+    // Route through the browser back button (rather than just toggling the
+    // class directly) whenever we're the ones who pushed this history
+    // entry, so the on-screen button and the hardware back button always
+    // stay in sync — popstate below is the single place that actually
+    // closes the thread.
+    if(history.state && history.state.srThreadOpen){
+      history.back();
+    } else {
+      document.getElementById('convWrap').classList.remove('thread-open');
+    }
   }
+
+  // Hardware/gesture back button while a thread is open: close the thread
+  // instead of leaving the dashboard entirely.
+  window.addEventListener('popstate', function(event){
+    if(!event.state || !event.state.srThreadOpen){
+      document.getElementById('convWrap').classList.remove('thread-open');
+    }
+  });
 
   function renderConversationThread(c){
     if(currentUser.role === 'counsellor'){

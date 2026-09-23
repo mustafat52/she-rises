@@ -412,7 +412,7 @@
          device — a one-time toast is too easy to miss, and a missed case
          assignment here isn't a small thing. -->
     <div id="notifSetupBanner">
-      <span>⚠️ Notifications aren’t set up on this device — you won’t be alerted when a case is assigned to you.</span>
+      <span id="notifSetupText">⚠️ Notifications aren’t set up on this device — you won’t be alerted when a case is assigned to you.</span>
       <button onclick="retryPushSetup()">Enable notifications</button>
     </div>
 
@@ -515,10 +515,25 @@
   // device by mistake, which re-opens registration on her next login.
   // Shows/hides the persistent "notifications aren't set up" banner. Unlike
   // the old one-shot toast, this stays up until push is actually confirmed
-  // working, so it can't be missed and forgotten about.
-  function setNotifBanner(visible){
+  // working, so it can't be missed and forgotten about. Accepts an optional
+  // message override so we can tell her *why* it's not working instead of
+  // always showing the same generic line.
+  const DEFAULT_NOTIF_TEXT = '⚠️ Notifications aren’t set up on this device — you won’t be alerted when a case is assigned to you.';
+  function setNotifBanner(visible, message){
     const el = document.getElementById('notifSetupBanner');
+    const textEl = document.getElementById('notifSetupText');
+    if(textEl) textEl.textContent = message || DEFAULT_NOTIF_TEXT;
     if(el) el.style.display = visible ? 'flex' : 'none';
+  }
+
+  // Embedded in-app browsers (Facebook, Instagram, WeChat, Line, TikTok…)
+  // routinely let Notification.requestPermission() report "granted" while
+  // still failing to register a real push subscription underneath — there's
+  // no code-side fix for that, only a way to explain it instead of failing
+  // silently and looking like the button "does nothing."
+  function isLikelyInAppBrowser(){
+    const ua = navigator.userAgent || '';
+    return /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok/i.test(ua);
   }
 
   async function setupPushNotifications(existingToken){
@@ -533,29 +548,49 @@
       return;
     }
     if(!('serviceWorker' in navigator) || !('Notification' in window)){
-      return; // unsupported browser — nothing she can do about this either
+      setNotifBanner(true, '⚠️ This browser doesn’t support notifications on this device — try opening the site in Chrome or Safari instead.');
+      return;
+    }
+    if(isLikelyInAppBrowser()){
+      setNotifBanner(true, '⚠️ Notifications can’t be enabled inside this app’s built-in browser (e.g. Facebook). Open this page in Chrome or Safari instead, then try again.');
+      return; // registration reliably fails inside these embedded webviews — no point trying and failing silently
     }
     try{
       const permission = await Notification.requestPermission();
       if(permission !== 'granted'){
-        setNotifBanner(true);
+        setNotifBanner(true, permission === 'denied'
+          ? '⚠️ Notifications are blocked for this site in your browser settings — turn them on there, then try again.'
+          : DEFAULT_NOTIF_TEXT);
         return;
       }
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       const messaging = firebase.messaging();
       const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registration });
-      if(token){
-        // Guard against a race: only write if still empty at the moment of
-        // saving (in case two tabs/devices both ran this in the same window).
-        await sb.from('profiles').update({ fcm_token: token }).eq('id', currentUser.id).is('fcm_token', null);
-        setNotifBanner(false);
-      } else {
+      if(!token){
         setNotifBanner(true);
+        return;
       }
+      // Guard against a race: only write if still empty at the moment of
+      // saving (in case two tabs/devices both ran this in the same window).
+      const { error } = await sb.from('profiles')
+        .update({ fcm_token: token, fcm_token_set_at: new Date().toISOString() })
+        .eq('id', currentUser.id).is('fcm_token', null);
+      if(error){
+        // Previously this was never checked, so a failed save (e.g. a
+        // missing column, or a network blip) looked identical to success —
+        // the banner would vanish, then reappear on the next reload with
+        // no explanation. Surface it for real instead.
+        console.error('Saving push token failed:', error);
+        setNotifBanner(true, '⚠️ Notifications were allowed, but we couldn’t save that — please try again.');
+        showToast('Could not finish setting up notifications: ' + error.message);
+        return;
+      }
+      setNotifBanner(false);
     }catch(e){
       console.error('Push notification setup failed:', e);
       setNotifBanner(true);
+      showToast('Could not enable notifications: ' + (e.message || 'unknown error'));
     }
   }
 
@@ -1034,7 +1069,7 @@
       ];
       if(convFilter==='all') convFilter='mine';
     } else if(currentUser.role==='volunteer' || currentUser.role==='super_volunteer' || currentUser.role==='admin'){
-      chips = [{id:'all', label:'All'}, {id:'crisis', label:'Crisis'}, {id:'high', label:'High Priority'}];
+      chips = [{id:'all', label:'All'}, {id:'crisis', label:'Crisis'}, {id:'high', label:'High Priority'}, {id:'moved_to_counsellor', label:'Moved to Counsellor'}];
       if(currentUser.role==='super_volunteer') chips.push({id:'transferred', label:'Transferred to Me'});
       if(currentUser.role==='admin') chips.push({id:'unclaimed', label:'Needs Assignment (24h+)'});
     }
@@ -1050,12 +1085,24 @@
 
   function filteredConversations(){
     let list = conversations;
-    if(convFilter==='mine') list = list.filter(c=>c.assigned_counsellor===currentUser.id);
-    else if(convFilter==='queue') list = list.filter(c=>c.status==='pending_counsellor');
-    else if(convFilter==='unclaimed') list = list.filter(isUnclaimed24h);
-    else if(convFilter==='transferred') list = list.filter(c=>c.transferred_to===currentUser.id);
-    else if(convFilter==='crisis') list = list.filter(c=>c.severity==='crisis');
-    else if(convFilter==='high') list = list.filter(c=>c.severity==='high');
+    if(convFilter==='moved_to_counsellor'){
+      // Its own, exclusive home — a case that's ever been escalated lives
+      // here from that moment on, including after a counsellor has closed
+      // it, rather than surfacing in (and cluttering) every other tab below.
+      list = list.filter(c=>!!c.escalated_at);
+    } else {
+      // Every other view is about her own still-active conversations, so
+      // an escalated case drops out of all of them the moment it moves —
+      // it doesn't linger in "All" (or Crisis/High/Transferred) just
+      // because it used to be hers.
+      list = list.filter(c=>!c.escalated_at);
+      if(convFilter==='mine') list = list.filter(c=>c.assigned_counsellor===currentUser.id);
+      else if(convFilter==='queue') list = list.filter(c=>c.status==='pending_counsellor');
+      else if(convFilter==='unclaimed') list = list.filter(isUnclaimed24h);
+      else if(convFilter==='transferred') list = list.filter(c=>c.transferred_to===currentUser.id);
+      else if(convFilter==='crisis') list = list.filter(c=>c.severity==='crisis');
+      else if(convFilter==='high') list = list.filter(c=>c.severity==='high');
+    }
     const searchEl = document.getElementById('convSearchInput');
     const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
     if(q){
@@ -1125,12 +1172,41 @@
     renderConversationList();
     const c = conversations.find(x=>x.id===caseId);
     if(c){ renderConversationThread(c); updateSeekerTypingIndicator(c); }
-    document.getElementById('convWrap').classList.add('thread-open'); // full-screen drill-down on mobile; no-op on desktop
+    const wrap = document.getElementById('convWrap');
+    // Only push a history entry the moment we're actually opening the
+    // thread (list -> thread), not on every subsequent click while already
+    // inside one — otherwise picking a different conversation while a
+    // thread is open would stack up extra back-button presses.
+    if(!wrap.classList.contains('thread-open')){
+      // Without this, there's no in-app history entry for "thread open" at
+      // all, so the phone's hardware/gesture back button has nowhere to
+      // land except wherever she was *before* the dashboard loaded —
+      // exiting the whole app instead of just closing the thread.
+      history.pushState({ srThreadOpen: true }, '');
+    }
+    wrap.classList.add('thread-open');
   }
 
   function closeThread(){
-    document.getElementById('convWrap').classList.remove('thread-open');
+    // Route through the browser back button (rather than just toggling the
+    // class directly) whenever we're the ones who pushed this history
+    // entry, so the on-screen button and the hardware back button always
+    // stay in sync — popstate below is the single place that actually
+    // closes the thread.
+    if(history.state && history.state.srThreadOpen){
+      history.back();
+    } else {
+      document.getElementById('convWrap').classList.remove('thread-open');
+    }
   }
+
+  // Hardware/gesture back button while a thread is open: close the thread
+  // instead of leaving the dashboard entirely.
+  window.addEventListener('popstate', function(event){
+    if(!event.state || !event.state.srThreadOpen){
+      document.getElementById('convWrap').classList.remove('thread-open');
+    }
+  });
 
   // Runs every poll, independent of renderConversationThread's own
   // rebuild guard — the whole point of that guard is to avoid tearing
