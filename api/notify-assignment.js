@@ -138,14 +138,31 @@ module.exports = async (req, res) => {
       throw sendErr; // genuine failure — handled by the outer catch below
     }
 
-    res.status(200).json({ sent: true });
+    // Log BEFORE responding, not after. This used to respond first and log
+    // second, on the theory that the trigger doesn't wait on the response
+    // body anyway (true — it's fire-and-forget from pg_net's side) so there
+    // was no benefit either way, but it created a real hazard: if the log
+    // write threw for any reason (not just a Supabase {error}, an actual
+    // exception — a network blip, a timeout), it escaped to the catch below,
+    // which then tried to call res.status(500) a second time — but headers
+    // were already sent, so THAT throws too (ERR_HTTP_HEADERS_SENT), and the
+    // whole function crashes before ever reaching the catch's own log write.
+    // Net effect: Firebase genuinely sent the push (net._http_response shows
+    // a clean 200), but notification_log gets nothing, silently. This was
+    // the same failure mode Bug #2 fixed for the un-awaited case — this is
+    // the awaited case, just needing the same "always log first" ordering
+    // the 'skipped' path already used correctly.
     await logOutcome('sent', null);
+    res.status(200).json({ sent: true });
   } catch (err) {
     console.error('notify-assignment error:', err);
-    // Response first, then await the log write — same reasoning as above:
-    // sending res.status(500) doesn't need to wait on this, but the handler
-    // itself does, so the function isn't frozen before the insert lands.
-    res.status(500).json({ error: 'Could not send notification' });
     await logOutcome('error', String((err && err.message) || err));
+    // Guard against the response already having gone out (e.g. a throw from
+    // logOutcome itself, or anything after an earlier res.status() call) —
+    // calling res.status() a second time throws and would otherwise crash
+    // the function here, past the point where anything else can be logged.
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Could not send notification' });
+    }
   }
 };
