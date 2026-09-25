@@ -1236,41 +1236,12 @@
     renderConversationList();
     const c = conversations.find(x=>x.id===caseId);
     if(c){ renderConversationThread(c); updateSeekerTypingIndicator(c); }
-    const wrap = document.getElementById('convWrap');
-    // Only push a history entry the moment we're actually opening the
-    // thread (list -> thread), not on every subsequent click while already
-    // inside one — otherwise picking a different conversation while a
-    // thread is open would stack up extra back-button presses.
-    if(!wrap.classList.contains('thread-open')){
-      // Without this, there's no in-app history entry for "thread open" at
-      // all, so the phone's hardware/gesture back button has nowhere to
-      // land except wherever she was *before* the dashboard loaded —
-      // exiting the whole app instead of just closing the thread.
-      history.pushState({ srThreadOpen: true }, '');
-    }
-    wrap.classList.add('thread-open');
+    document.getElementById('convWrap').classList.add('thread-open'); // full-screen drill-down on mobile; no-op on desktop
   }
 
   function closeThread(){
-    // Route through the browser back button (rather than just toggling the
-    // class directly) whenever we're the ones who pushed this history
-    // entry, so the on-screen button and the hardware back button always
-    // stay in sync — popstate below is the single place that actually
-    // closes the thread.
-    if(history.state && history.state.srThreadOpen){
-      history.back();
-    } else {
-      document.getElementById('convWrap').classList.remove('thread-open');
-    }
+    document.getElementById('convWrap').classList.remove('thread-open');
   }
-
-  // Hardware/gesture back button while a thread is open: close the thread
-  // instead of leaving the dashboard entirely.
-  window.addEventListener('popstate', function(event){
-    if(!event.state || !event.state.srThreadOpen){
-      document.getElementById('convWrap').classList.remove('thread-open');
-    }
-  });
 
   // Runs every poll, independent of renderConversationThread's own
   // rebuild guard — the whole point of that guard is to avoid tearing
@@ -1541,7 +1512,7 @@
       const { data, error } = await sb.rpc(fn, { p_case_id: editingCaseId, p_actor_id: currentUser.id, p_reason: reason || null });
       if(error) throw error;
       if(data === false){ showToast('Could not close this case'); return; }
-    }catch(e){ console.error(e); showToast('Could not close: ' + (e.message || 'unknown error')); return; }
+    }catch(e){ showToast('Could not close: ' + (e.message || 'unknown error')); return; }
     closeModal();
     showToast('Case closed');
     await loadConversations();
@@ -1673,7 +1644,7 @@
   }
 
   function renderPending(){
-    const pending = allProfiles.filter(p=>!p.is_active && !p.declined && !applicantIdsWithPendingApplication.has(p.id));
+    const pending = allProfiles.filter(p=>!p.is_active && !p.declined && !p.deactivated_at && !applicantIdsWithPendingApplication.has(p.id));
     const skippedForApplication = allProfiles.filter(p=>!p.is_active && applicantIdsWithPendingApplication.has(p.id)).length;
     const badge = document.getElementById('count-pending');
     if(badge) badge.textContent = pending.length;
@@ -1721,35 +1692,47 @@
   }
 
   function renderTeam(){
-    const roles = ['All','volunteer','super_volunteer','counsellor','media_manager','admin'];
-    const roleLabels = {All:'All', volunteer:'Volunteers', super_volunteer:'Senior Volunteers', counsellor:'Counsellors', media_manager:'Media Managers', admin:'Admins'};
+    const roles = ['All','volunteer','super_volunteer','counsellor','media_manager','admin','Deactivated'];
+    const roleLabels = {All:'All', volunteer:'Volunteers', super_volunteer:'Senior Volunteers', counsellor:'Counsellors', media_manager:'Media Managers', admin:'Admins', Deactivated:'Deactivated'};
     const filterRow = document.getElementById('teamFilterRow');
     if(filterRow) filterRow.innerHTML = roles.map(r=>
       `<button class="filter-chip ${r===activeTeamFilter?'active':''}" onclick="setTeamFilter('${r}')">${roleLabels[r]}</button>`
     ).join('');
 
-    let list = allProfiles.filter(p=>p.is_active);
-    if(activeTeamFilter!=='All') list = list.filter(p=>p.role===activeTeamFilter);
+    // Deactivated is its own bucket, not a role — it shows anyone flipped
+    // off via the real Deactivate flow (deactivated_at set), which is also
+    // what keeps them out of renderPending's "waiting for first approval"
+    // list above so the two don't get mixed up.
+    const showingDeactivated = activeTeamFilter === 'Deactivated';
+    let list = showingDeactivated
+      ? allProfiles.filter(p=>!p.is_active && p.deactivated_at)
+      : allProfiles.filter(p=>p.is_active);
+    if(!showingDeactivated && activeTeamFilter!=='All') list = list.filter(p=>p.role===activeTeamFilter);
     const searchEl = document.getElementById('teamSearchInput');
     const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
     if(q) list = list.filter(p=>(p.full_name||'').toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q));
     const container = document.getElementById('teamList');
     if(!container) return;
-    if(!list.length){ container.innerHTML = '<div class="empty-state">No one here yet.</div>'; return; }
+    if(!list.length){ container.innerHTML = `<div class="empty-state">${showingDeactivated ? 'No one is deactivated right now.' : 'No one here yet.'}</div>`; return; }
     const roleLabelMap = {volunteer:'Volunteer', super_volunteer:'Senior Volunteer', counsellor:'Counsellor', media_manager:'Media Manager', admin:'Admin'};
     container.innerHTML = list.map(p=>`
       <div class="person-card">
         <div class="person-info">
-          <div class="pname">${p.full_name} <span class="role-tag">${roleLabelMap[p.role]}</span>${p.role==='counsellor' && p.is_public_listed ? '<span class="role-tag" style="background:var(--gold-soft); color:var(--rose-deep-dark);">Publicly listed</span>' : ''}</div>
-          <div class="pmeta">${p.email || ''}${p.fcm_token ? ' · Notifications set up' : ''}</div>
+          <div class="pname">${p.full_name} <span class="role-tag ${showingDeactivated?'inactive':''}">${roleLabelMap[p.role]}</span>${p.role==='counsellor' && p.is_public_listed ? '<span class="role-tag" style="background:var(--gold-soft); color:var(--rose-deep-dark);">Publicly listed</span>' : ''}</div>
+          <div class="pmeta">${p.email || ''}${p.fcm_token ? ' · Notifications set up' : ''}${showingDeactivated && p.deactivated_at ? ' · Deactivated ' + timeAgo(new Date(p.deactivated_at).getTime()) : ''}</div>
         </div>
         <div class="person-actions">
-          ${p.role==='counsellor' ? `<button class="p-btn" onclick="openListingModal('${p.id}')">Edit Public Listing</button>` : ''}
-          <button class="p-btn" onclick="openRoleModal('${p.id}')">Change Role</button>
-          ${(p.role==='counsellor' || p.role==='media_manager') ? `<button class="p-btn primary" onclick="promoteToAdmin('${p.id}')" title="Only counsellors and media managers can be promoted to Admin">Promote to Admin</button>` : ''}
-          ${p.fcm_token ? `<button class="p-btn" onclick="resetNotificationDevice('${p.id}')" title="Clears her saved device so she can register a new one on next login">Reset Notification Device</button>` : ''}
-          <button class="p-btn danger" onclick="deactivateProfile('${p.id}')">Deactivate</button>
-          ${p.id !== currentUser.id ? `<button class="p-btn danger" onclick="deleteProfile('${p.id}')" title="Permanently deletes the account — only works if they have no case history">Delete</button>` : ''}
+          ${showingDeactivated ? `
+            <button class="p-btn primary" onclick="reactivateProfile('${p.id}')" title="Restores her access and lets her sign in again, with the same role as before">Reactivate</button>
+            <button class="p-btn danger" onclick="deleteProfile('${p.id}')" title="Permanently deletes the account — only works if they have no case history">Delete</button>
+          ` : `
+            ${p.role==='counsellor' ? `<button class="p-btn" onclick="openListingModal('${p.id}')">Edit Public Listing</button>` : ''}
+            <button class="p-btn" onclick="openRoleModal('${p.id}')">Change Role</button>
+            ${(p.role==='counsellor' || p.role==='media_manager') ? `<button class="p-btn primary" onclick="promoteToAdmin('${p.id}')" title="Only counsellors and media managers can be promoted to Admin">Promote to Admin</button>` : ''}
+            ${p.fcm_token ? `<button class="p-btn" onclick="resetNotificationDevice('${p.id}')" title="Clears her saved device so she can register a new one on next login">Reset Notification Device</button>` : ''}
+            <button class="p-btn danger" onclick="deactivateProfile('${p.id}')" title="Actually blocks sign-in (bans the account) until reactivated — doesn't delete anything">Deactivate</button>
+            ${p.id !== currentUser.id ? `<button class="p-btn danger" onclick="deleteProfile('${p.id}')" title="Permanently deletes the account — only works if they have no case history">Delete</button>` : ''}
+          `}
         </div>
       </div>
     `).join('');
@@ -1842,7 +1825,7 @@
 
   async function resetNotificationDevice(profileId){
     try{
-      const { error } = await sb.from('profiles').update({ fcm_token: null }).eq('id', profileId);
+      const { error } = await sb.from('profiles').update({ fcm_token: null, fcm_token_set_at: null }).eq('id', profileId);
       if(error) throw error;
     }catch(e){
       console.error(e); showToast('Could not reset: ' + (e.message || 'unknown error')); return;
@@ -1851,16 +1834,43 @@
     await loadAdminOverviewData();
   }
 
-
-  async function deactivateProfile(profileId){
+  // ---------- deactivate / reactivate: actually blocks (and restores) sign-in ----------
+  // A plain `profiles.is_active = false` update never touched Supabase Auth
+  // itself — her email/password kept working, and any session she already
+  // held stayed fully valid against every RLS policy (current_role_name()
+  // only ever checked role, never is_active). That's now fixed at the RLS
+  // layer (see schema.sql), but the actual sign-in block still has to
+  // happen via the Auth Admin API (ban_duration), which — like delete —
+  // requires the service-role key and so must run server-side. This calls
+  // the same /api/set-user-active endpoint for both directions.
+  async function setUserActive(profileId, active, successMsg){
     try{
-      const { error } = await sb.from('profiles').update({ is_active:false }).eq('id', profileId);
-      if(error) throw error;
+      const { data } = await sb.auth.getSession();
+      const token = data && data.session ? data.session.access_token : null;
+      if(!token) throw new Error('No active session');
+      const res = await fetch('/api/set-user-active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ profile_id: profileId, active })
+      });
+      const json = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(json.error || `Could not ${active ? 'reactivate' : 'deactivate'} this account`);
     }catch(e){
-      console.error(e); showToast('Could not deactivate: ' + (e.message || 'unknown error')); return;
+      console.error(e); showToast(`Could not ${active ? 'reactivate' : 'deactivate'}: ` + (e.message || 'unknown error')); return;
     }
-    showToast('Deactivated — they can no longer sign in to any internal tool');
+    showToast(successMsg);
     await loadAdminOverviewData();
+  }
+
+  function deactivateProfile(profileId){
+    const p = allProfiles.find(x=>x.id===profileId);
+    if(!p) return;
+    if(!confirm(`Deactivate ${p.full_name}? This blocks her from signing in to any internal tool until you reactivate her — her account, role, and case history all stay exactly as they are.`)) return;
+    setUserActive(profileId, false, 'Deactivated — she can no longer sign in, and can be reactivated any time from the Deactivated tab');
+  }
+
+  function reactivateProfile(profileId){
+    setUserActive(profileId, true, 'Reactivated — she can sign in again with her previous role');
   }
 
   // ---------- promote to admin ----------
@@ -1935,7 +1945,6 @@
           <option value="counsellor" ${p.role==='counsellor'?'selected':''}>Counsellor</option>
           <option value="media_manager" ${p.role==='media_manager'?'selected':''}>Media Manager</option>
           ${canBeAdmin ? `<option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>` : ''}
-          <option value="developer" ${p.role==='developer'?'selected':''}>Developer</option>
         </select>
         ${!canBeAdmin ? `<p style="font-size:0.78rem; color:var(--ink-soft); margin-top:6px;">Volunteers can't be promoted directly to Admin — move them to Counsellor or Media Manager first if that's really needed.</p>` : ''}
       </div>

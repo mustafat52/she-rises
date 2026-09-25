@@ -1719,3 +1719,43 @@ begin
   return query select v_code, v_case_ref;
 end;
 $$ language plpgsql security definer;
+-- ============================================================================
+-- ============  8. DEACTIVATE / REACTIVATE — REAL SIGN-IN BLOCK  =============
+-- ============================================================================
+-- This section IS newly built by us for this request (not reconstructed
+-- guesswork) — safe to run directly, additive only, nothing dropped.
+--
+-- Two independent problems, both required to make "Deactivate" actually do
+-- what it says:
+--
+-- (a) profiles.is_active alone was never checked by RLS. current_role_name()
+--     — the function nearly every policy in this file relies on — only ever
+--     looked at `role`, never `is_active`. So a deactivated person holding
+--     an already-issued, unexpired session could keep reading/writing
+--     everything their role allowed at the database level, regardless of
+--     what any dashboard's UI gate showed her. Fixed by having
+--     current_role_name() return null once is_active is false, which makes
+--     every policy built on top of it (current_role_name() = 'admin',
+--     current_role_name() in (...), etc.) evaluate false automatically —
+--     no need to touch each individual policy.
+--
+-- (b) Actually preventing sign-in at all (not just cutting off an existing
+--     session) requires banning the Supabase Auth user via the Admin API
+--     (auth.admin.updateUserById + ban_duration), which needs the
+--     service-role key — done in api/set-user-active.js, server-side only,
+--     same pattern as api/delete-user.js. deactivated_at here is just a
+--     timestamp so Manage Team can tell "genuinely deactivated" apart from
+--     "brand new signup still waiting for first approval" (both currently
+--     have is_active = false, but mean very different things).
+-- ============================================================================
+
+-- ---------- (a) is_active-aware role check ----------
+create or replace function current_role_name() returns user_role as $$
+  select role from profiles where id = auth.uid() and is_active = true;
+$$ language sql stable security definer;
+
+-- ---------- (b) tracks when (and that) a real deactivation happened ----------
+-- Distinct from is_active=false on a freshly-signed-up, never-yet-approved
+-- profile — that case has deactivated_at still null. Only api/set-user-active.js
+-- sets/clears this.
+alter table profiles add column if not exists deactivated_at timestamptz;
